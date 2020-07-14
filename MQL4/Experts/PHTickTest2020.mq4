@@ -23,7 +23,7 @@ int OnInit()
 
    //Open Log File (Overwrite mode)
    myTraceLogger.logOpen(  "TickTest_", true );
-   myTraceLogger.log( LOG_OFF, "xxxxx", LOG_OFF);
+   myTraceLogger.log( LOG_OFF, "Starting Logging...", LOG_OFF);
    
    //---
    return(INIT_SUCCEEDED);
@@ -47,7 +47,7 @@ void OnTick()
    int kFunctionLoggingLevel = LOG_DEBUG;
    string sLogPrefix = "TickTest2020::OnTick::";
 
-      myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS) ), kFunctionLoggingLevel );
+      myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS), ", GetTickCount() ", GetTickCount() ), kFunctionLoggingLevel );
 
       datetime tTimeframeForTick = iTime( Symbol(), PERIOD_M1, 0 );
       myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "The timeframe for *this* tick ", tTimeframeForTick ), kFunctionLoggingLevel );      
