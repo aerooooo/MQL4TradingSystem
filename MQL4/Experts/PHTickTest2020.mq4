@@ -18,12 +18,12 @@ PHLogger2020 myTraceLogger;
 //+------------------------------------------------------------------+
 int OnInit()
   {
-   //--- create timer
-   EventSetTimer(60);
+   //--- create timer (used for flushing the log file)
+   EventSetTimer(2);
 
-   //Open Log File (Overwrite mode)
-   myTraceLogger.logOpen(  "TickTest_", true );
-   myTraceLogger.log( LOG_OFF, "Starting Logging...", LOG_OFF);
+   //Open Log File (Overwrite mode, disable flush)
+   myTraceLogger.logOpen(  "TickTest", true, -1 );
+   myTraceLogger.logWrite( LOG_OFF, "Starting Logging...", LOG_OFF);
    
    //---
    return(INIT_SUCCEEDED);
@@ -47,26 +47,26 @@ void OnTick()
    int kFunctionLoggingLevel = LOG_DEBUG;
    string sLogPrefix = "TickTest2020::OnTick::";
 
-      myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS), ", GetTickCount() ", GetTickCount() ), kFunctionLoggingLevel );
+      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS), ", GetTickCount() ", GetTickCount() ), kFunctionLoggingLevel );
 
       datetime tTimeframeForTick = iTime( Symbol(), PERIOD_M1, 0 );
-      myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "The timeframe for *this* tick ", tTimeframeForTick ), kFunctionLoggingLevel );      
+      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "The timeframe for *this* tick ", tTimeframeForTick ), kFunctionLoggingLevel );      
       
 /*
       if( isTheSameMinutelyTick() ) {
-         myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Minute tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+         myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Minute tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
       }
 
       if( isTheSameDailyTick() ) {
-         myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+         myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
       }
 
       if( isTheSameWeeklyTick() ) {
-         myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+         myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
       }
 
       if( isTheSameHourlyTick() ) {
-         myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+         myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
       }
 */      
    
@@ -76,7 +76,7 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTimer()
   {
-//---
+   myTraceLogger.logFlush();
    
   }
 //+------------------------------------------------------------------+
@@ -99,7 +99,7 @@ bool isTheSameMinutelyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewM1Tick;
 
-   myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "One Minutely tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "One Minutely tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
    return( isMinutelyTick );
 }
 
@@ -117,7 +117,7 @@ bool isTheSameWeeklyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewW1Tick;
 
-   myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
    return( isWeeklyTick );
 }
 
@@ -135,7 +135,7 @@ bool isTheSameHourlyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewH1Tick;
 
-   myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
    return( isHourlyTick );
 }
 
@@ -152,7 +152,7 @@ bool isTheSameDailyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewD1Tick;
 
-   myTraceLogger.log( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
    return( isDailyTick );
 }
 
