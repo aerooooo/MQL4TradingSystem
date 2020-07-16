@@ -36,8 +36,8 @@ void OnDeinit(const int reason)
    //--- destroy timer
    EventKillTimer();
    
-   //Close Log File
-   myTraceLogger.logClose( false );
+   //Close Log File                       //LOGGING
+   myTraceLogger.logClose( false );       //LOGGING
   }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
