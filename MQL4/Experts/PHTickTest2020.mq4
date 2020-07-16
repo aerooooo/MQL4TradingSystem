@@ -16,18 +16,20 @@ PHLogger2020 myTraceLogger;
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
-int OnInit()
-  {
+int OnInit() {
    //--- create timer (used for flushing the log file)
    EventSetTimer(2);
 
    //Open Log File (Overwrite mode, disable flush)
    myTraceLogger.logOpen(  "TickTest", true, -1 );
-   myTraceLogger.logWrite( LOG_OFF, "Starting Logging...", LOG_OFF);
+   myTraceLogger.logSetThreshold( LOG_DEBUG );
+   //myTraceLogger.logWrite( LOG_OFF, "Starting Logging...", LOG_OFF);
    
    //---
    return(INIT_SUCCEEDED);
-  }
+}
+
+
 //+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
@@ -39,18 +41,18 @@ void OnDeinit(const int reason)
    //Close Log File                       //LOGGING
    myTraceLogger.logClose( false );       //LOGGING
   }
+
+
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
-void OnTick()
-  {
-   int kFunctionLoggingLevel = LOG_DEBUG;
+void OnTick()  {
    string sLogPrefix = "TickTest2020::OnTick::";
 
-      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS), ", GetTickCount() ", GetTickCount() ), kFunctionLoggingLevel );
+      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "New Tick Appears (Period: ", Period(), ") >>> Bid: ", DoubleToStr( Bid, 5 ), ", TimeCurrent(): ", TimeToStr( TimeCurrent(), TIME_DATE|TIME_SECONDS), ", GetTickCount() ", GetTickCount() ) );
 
       datetime tTimeframeForTick = iTime( Symbol(), PERIOD_M1, 0 );
-      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "The timeframe for *this* tick ", tTimeframeForTick ), kFunctionLoggingLevel );      
+      myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "The timeframe for *this* tick ", tTimeframeForTick ) );
       
 /*
       if( isTheSameMinutelyTick() ) {
@@ -99,7 +101,7 @@ bool isTheSameMinutelyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewM1Tick;
 
-   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "One Minutely tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "One Minutely tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ) );
    return( isMinutelyTick );
 }
 
@@ -117,7 +119,7 @@ bool isTheSameWeeklyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewW1Tick;
 
-   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Weekly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ) );
    return( isWeeklyTick );
 }
 
@@ -135,7 +137,7 @@ bool isTheSameHourlyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewH1Tick;
 
-   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Hourly tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ) );
    return( isHourlyTick );
 }
 
@@ -152,7 +154,7 @@ bool isTheSameDailyTick() {
    }
    tLastTimeframeSeen = tTimeframeForNewD1Tick;
 
-   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ), kFunctionLoggingLevel );
+   myTraceLogger.logWrite( LOG_DEBUG, StringConcatenate( sLogPrefix, "Daily tick. Now go do some logic with ", DoubleToStr( Bid, 5 ), " ..." ) );
    return( isDailyTick );
 }
 
