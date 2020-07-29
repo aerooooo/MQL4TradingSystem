@@ -10,6 +10,7 @@
 
 #include <PHLogger.mqh>
 #include <PHStickyTimepiece.mqh>
+#include <PHTradingExpert.mqh>
 //#include <PHOrderManagement.mqh>
 //#include <PHStatistics.mqh>
 //#include <BarOpenEvent.mqh>
@@ -17,6 +18,8 @@
 
 //Global variables
 PHStickyTimepiece myTimepiece();
+PHTradingExpert myTradingExpert( "" );
+
 //PHOrderManagement myOM();
 //PHStatistics myStats();
 
@@ -74,8 +77,15 @@ void OnTick()
    myLogger.logDEBUG( "The D1 timeframe for *this* tick " + string( tTimeframeForNewD1Tick ) );
 
    if ( myTimepiece.isANewMinutelyTick( "" ) ) {
-         myLogger.logINFO( "This marks a new Minutely Tick/Bar Open!  Now go do some Minutely-based stuff..." );
-         // ...
+      myLogger.logINFO( "This marks a new Minutely Tick/Bar Open!  Now go do some Minutely-based stuff..." );
+      // ...
+      
+      myTradingExpert.OrdersAccounting1();
+      myTradingExpert.TradingCriteria2();
+      myTradingExpert.CloseOrders3();
+      myTradingExpert.CalcOrderSize4();
+      myTradingExpert.CreateMarketOrder5();
+         
    } //end if Minutely Tick
    
 
