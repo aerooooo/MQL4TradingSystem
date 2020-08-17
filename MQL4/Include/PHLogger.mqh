@@ -11,10 +11,12 @@
 #define logALL( _text )   logWrite( LOG_ALL, eLT, sLLP, _text );
 #define logFATAL( _text ) logWrite( LOG_FATAL, eLT, sLLP, _text );
 #define logERROR( _text ) logWrite( LOG_ERROR, eLT, sLLP, _text );
+#define logWARN( _text ) logWrite( LOG_WARN, eLT, sLLP, _text );
 #define logINFO( _text )  logWrite( LOG_INFO,  eLT, sLLP, _text );
 #define logDEBUG( _text ) logWrite( LOG_DEBUG, eLT, sLLP, _text );
 
-
+//Used by Prepreocessor to detect wether this include file has already been included
+#define _logger 1
 
 //+------------------------------------------------------------------+
 //|  HOW DO I USE THIS?

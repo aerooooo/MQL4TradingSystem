@@ -8,19 +8,25 @@
 #property version   "1.00"
 #property strict
 
-#include <PHLogger.mqh>
+#ifndef _logger
+   #include <PHLogger.mqh>
+#endif
+
+#ifndef _custom_types
+   #include <PH Custom Types.mqh>
+#endif 
+
 #include <PHStickyTimepiece.mqh>
-#include <PHTradingExpert.mqh>
-//#include <PHOrderManagement.mqh>
+//#include <PHTradingExpert.mqh>
+#include <PH OrderManagement2.mqh>
 //#include <PHStatistics.mqh>
 //#include <BarOpenEvent.mqh>
 
 
 //Global variables
 PHStickyTimepiece myTimepiece();
-PHTradingExpert myTradingExpert( "" );
-
-//PHOrderManagement myOM();
+//PHTradingExpert myTradingExpert( "" );
+PHOrderManagement2 myOM();
 //PHStatistics myStats();
 
 //+------------------------------------------------------------------+
@@ -40,6 +46,16 @@ int OnInit()
 
    myLogger.logINFO( "ChartSymbol: " + ChartSymbol( 0 ) );  // ChartSymbol( 0 ) = Current chart. Returns string
    myLogger.logINFO( "TimeLocal: " + string( TimeLocal() ));         // returns a string ("2014.03.05 15:46:58") with #property strict, returns a datetime ("1394034418") without #property strict
+
+      PH_FX_PAIRS eVal = -1;
+      PH_FX_PAIRS eSymbol = StringToEnum( Symbol(), eVal );
+      PH_ORDER_TYPES eMyOrderTypeCode = ORDER_BUY;
+      PH_ENTRY_REASONS eReasonOpenType = ENTRY_RANDOMCOINFLIP;
+      PHPercent oPercentageOfEquityToRisk( 1 );
+      bool isFakeTrade = false;
+      
+      myOM.openTradeAtMarket( eSymbol, eMyOrderTypeCode, eReasonOpenType, oPercentageOfEquityToRisk, isFakeTrade );
+
 
 //---
    return(INIT_SUCCEEDED);
@@ -80,12 +96,26 @@ void OnTick()
       myLogger.logINFO( "This marks a new Minutely Tick/Bar Open!  Now go do some Minutely-based stuff..." );
       // ...
       
+      //IS SUFFICIENT MARGIN AVAILABLE?  (Push this work into OrderManagement)
+      //myLogger.logINFO( StringConcatenate( "Sufficient Margin?: ", myOM.isSufficientMarginAvailable( OP_BUY, Symbol(), 0.1 ) ) );
+      
+      /*
       myTradingExpert.OrdersAccounting1();
       myTradingExpert.TradingCriteria2();
       myTradingExpert.CloseOrders3();
       myTradingExpert.CalcOrderSize4();
       myTradingExpert.CreateMarketOrder5();
-         
+        */ 
+      string sSymbol = Symbol();
+/*
+      string sSymbol = Symbol();
+      PH_ORDER_TYPES eMyOrderTypeCode = ORDER_BUY;
+      PH_ENTRY_REASONS eReasonOpenType = ENTRY_RANDOMCOINFLIP;
+      double dPercentageOfEquityToRisk = 1;
+      bool isFakeTrade = false;
+      
+      myOM.openTradeAtMarket( eSymbol, eMyOrderTypeCode, eReasonOpenType, dPercentageOfEquityToRisk, isFakeTrade );
+*/
    } //end if Minutely Tick
    
 
