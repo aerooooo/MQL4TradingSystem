@@ -153,8 +153,8 @@ class PHDecimal {
       //Public Attributes
       PH_OBJECT_STATUS  _eStatus;   //I should make this private and only accessable via a "is" method, but Hey (shrug)
       
-   private:
-      //Private Attributes
+   protected:
+      //Protected Attributes
       long              _lUnits;       // The decimal value (Stored as a Long)
       int               _iPrecision;   // Precision of your value.
       
@@ -163,7 +163,8 @@ class PHDecimal {
          //Constructors (Abstract Class)
                            PHDecimal::PHDecimal( const double dInitialUnits, const int iPrecision );
 
-      //Inherited Classes                  
+                  void     PHDecimal::setValue( const double dInitialUnits, const int iPrecision );
+                  void     PHDecimal::unsetValue();
                   void     PHDecimal::add( const double dAddUnits );
                   void     PHDecimal::subtract( const double dSubUnits );
                   void     PHDecimal::multiply( const double dMultiplicationUnits );
@@ -205,24 +206,60 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    PHDecimal::PHDecimal( const double dInitialUnits, const int iPrecision ) 
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: %i } ", dInitialUnits, iPrecision ) );
       
       if ( iPrecision > _MAX_PRECISION ) {
-         this._eStatus    = OBJECT_UNITIALIZED;
-         this._lUnits     = NULL;
+         unsetValue();
          myLogger.logERROR( StringFormat( "Precision cannot be greater than %i", _MAX_PRECISION ) );
       } else {
-
-         this._eStatus    = OBJECT_FULLY_INITIALIZED;
-         this._iPrecision = iPrecision;
-   
-         double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
-         double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
-         this._lUnits     = (int) dIntResult;
-   
+         setValue( dInitialUnits, iPrecision );
          myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
       } //end if
+   };  //end Constructor
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - SetValue (Value and Position)  [using Atomic Parameters]
+   //|
+   //| Sets both the Units and Precision
+   //| Called by the Constructor and when manually changing a value
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::setValue( const double dInitialUnits, const int iPrecision )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: %i } ", dInitialUnits, iPrecision ) );
+      
+      this._eStatus    = OBJECT_FULLY_INITIALIZED;
+      this._iPrecision = iPrecision;
+
+      double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
+      double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
+      this._lUnits     = (int) dIntResult;
+
+      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+   };  //end Constructor
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - UnSetValue
+   //|
+   //| Unsets both the Units and Precision
+   //| Also called by PHDecimals' Constructor when it detects an invalid percentage (<0 or >100)
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::unsetValue()
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      
+      this._eStatus    = OBJECT_UNITIALIZED;
+      this._lUnits     = NULL;
+      this._iPrecision = NULL;
+
+      myLogger.logINFO( "No params. Object has been unintialized. Values set to NULL" );
    };  //end Constructor
 
 
@@ -233,7 +270,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    void PHDecimal::add( const double dAddUnits ) 
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, dAddUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
@@ -264,7 +301,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    void PHDecimal::subtract( const double dSubUnits )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
@@ -297,7 +334,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    void PHDecimal::multiply( const double dMultiplicationUnits )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "_lUnits: %g; param { dMultplicationUnits: %g } ", _lUnits, dMultiplicationUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
@@ -365,10 +402,6 @@ class PHDecimal {
 
          this._lUnits = lNormalizedValue;
 
-/*
-         // Step #3b: Unfortunately, you've not only multiplied the Units, but also the Precision (by 2dp)
-         this._lUnits = (lOverMultipliedValue / (long) MathPow( 10, this._iPrecision ));  //i.e. divide by 100 (for 2dp)
-*/
          myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
       } else {
          myLogger.logERROR( "Division cannot be performed on an uninitialized Object!" );
@@ -386,7 +419,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    bool PHDecimal::compare( const double dComparitorUnits )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "param { dComparitorUnits: %g } ", dComparitorUnits ) );
 
       bool isEqual = false;
@@ -428,7 +461,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    double   PHDecimal::toNormalizedDouble() const
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
       double dRet;
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
@@ -437,9 +470,6 @@ class PHDecimal {
          double dPrecisionMultiples = MathPow( 10, -this._iPrecision );  //Note the >>>minus power<<< i.e. 10^2 becomes 10^-2.  This will return my 'multiples of least significant digit' e.g. 0.01
          dRet = dUnits * dPrecisionMultiples;
 
-         //deprecated#1    dRet = NormalizeDouble( dIntResult, this._iPrecision ) ;
-         //deprecated#2    dRet = MathRound( dIntResult / dPrecisionMultiplier ) * dPrecisionMultiplier ;
-         //not necessary   dRet = PHDecimal::prenormalizeOperand_round( dIntResult );
          myLogger.logINFO( StringFormat( "final { dRet: %g, _iPrecision: %i } ", dRet, _iPrecision ) );
       } else {
          myLogger.logERROR( "No value to return on an uninitialized Object!" );
@@ -464,7 +494,7 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    double PHDecimal::prenormalizeOperand_round( const double dOperand ) const
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
       double dNormalizedOperand;
       {
@@ -475,78 +505,6 @@ class PHDecimal {
 
       return( dNormalizedOperand );   
    };
-
-
-
-
-
-
-/*
-
-
-//+------------------------------------------------------------------+
-//| PHDecimal2DP  (subclass of PHDecimal)
-//|
-//| A Class that stores it's decimal figures as Long!
-//|
-//| It provides the following against given/supplied Doubles (I haven't implemented Class-dependant methods for that yet)
-//|   * Addition
-//|   * Substraction
-//|   * Multiplication
-//|   * Division
-//|   * Comparison 
-//|
-//| The *only* safe way to accss the internall-held value is via the 'toNormalizedDouble()' method
-//| (Even the 'toString()' method calls it first)
-//| 
-//+------------------------------------------------------------------+
-class PHDecimal2DP {
-   
-   public:
-         virtual           PHDecimal::PHDecimal();                        //Constructor #0
-         virtual           PHDecimal::PHDecimal( const double dUnits );   //Constructor #1
-      
-
-
-}; //end Class PHDecimal2DP
-
-   //+------------------------------------------------------------------+
-   //| PHDecimal2DP - Constructor #0 (Unitialized/Empty)
-   //|
-   //+------------------------------------------------------------------+
-   PHDecimal2DP::PHDecimal2DP() 
-   {
-      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      this._eStatus    = OBJECT_UNITIALIZED;
-      this._lUnits     = NULL;
-      this._iPrecision = 2;
-      myLogger.logERROR( StringFormat( "final (Constructor #0) { _lUnits: %g, _iPrecision: %i (hard-coded) } ", _lUnits, _iPrecision ) );
-   };  //end Constructor
-
-
-   //+------------------------------------------------------------------+
-   //| PHDecimal2DP - Constructor #1 (Elemental)
-   //|
-   //+------------------------------------------------------------------+
-   PHDecimal2DP::PHDecimal2DP( const double dInitialUnits ) 
-   {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: 2 (hard-coded) } ", dInitialUnits ) );
-
-      this._eStatus    = OBJECT_FULLY_INITIALIZED;
-      this._iPrecision = 2;
-
-      double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
-      double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
-      
-      this._lUnits     = (int) dIntResult;
-      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
-   };  //end Constructor
-
-
-*/
-
-
 
 
 
@@ -568,36 +526,57 @@ class PHDecimal2DP {
 //| So it kinda has that login 'baked in' and *you don't have to worry about it*
 //|
 //+------------------------------------------------------------------+
-class PHPercent {
+class PHPercent : public PHDecimal {
 
-      private:
-         double _dFigure;
-         
+      //Public Methods
       public:
-                  PHPercent::PHPercent( const double dFigure );   //Supply a decimal between 0.0 and 100.0
+                  PHPercent::PHPercent( const double dFigure, const int iPrecision ) : PHDecimal( dFigure, iPrecision ) { validateFigure(); } ;   //Supply a decimal between 0.0 and 100.0
 //                  PHPercent::setPercent( const double dPercent );
-         double   PHPercent::getFigure()  const { return _dFigure; };      //Returns a value between 0 and 100
-         double   PHPercent::getPercent() const { return _dFigure/100; };  //Returns a value between 0.00 and 1.00
+         double   PHPercent::getFigure()  const { return this.toNormalizedDouble(); };            //Returns a value between 0    and 100
+         double   PHPercent::getPercent() const { return PHDecimal::toNormalizedDouble()/100; };  //Returns a value between 0.00 and   1.00
+         
+     protected:
+         void     PHPercent::validateFigure();
+
 }; //end Class
+
+/* temporarily hide...
 
    //+------------------------------------------------------------------+
    //| PHPercent - Constructor (Elemental)
    //|
    //+------------------------------------------------------------------+
-   PHPercent::PHPercent( const double dFigure )
+   PHPercent::PHPercent( const double dFigure, const int iPrecision )
+*/
+   //+------------------------------------------------------------------+
+   //| PHPercent - validateFigure
+   //|
+   //| I would usually perform validation within the Constructor, but since
+   //| this has been subclassed from the PHDecimal class, I can't stop the 
+   //| Base class' Constructor from setting the values first!
+   //|
+   //| So I'll allow the Base class Constructor to run (and set the Value/Precision)
+   //| and then come along, perform validation, and either 
+   //|   a) allow the values set by the Base Constructor to stand as-is
+   //|   b) Warn the user (again, allowing the values set by the Base Constructor to stand as-is)
+   //|   c) Override the Value with 100% if set out-of-bounds (i.e. <0 or >100)
+   //|
+   //+------------------------------------------------------------------+
+   void PHPercent::validateFigure()
    {   
-      LLP( LOG_ERROR ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      double dFigure = this.toNormalizedDouble();
    
+      if ( (dFigure > 0) && (dFigure < 1) )
+         myLogger.logWARN( StringFormat( "Percentages can be set between 0 and 100. If you meant to set a percentage between 0%% and 1%% then fine. Otherwise, if you meant %g%%, set it as %g instead", (dFigure*100), (dFigure*100) ) );
+      
       if ( ( dFigure < 0 ) || ( dFigure > 100 ) ) {
-         this._dFigure = 100;
-         myLogger.logERROR( StringFormat( "params (Constructor #1) { value: %g } is out of bounds - settting to 100.00", dFigure ) );
-         
-      } else
-         this._dFigure = dFigure;
-   }
+         myLogger.logERROR( StringFormat( "params passed { value: %g } is out of bounds - setting to 100.00 (2dp)", dFigure ) );
+         PHDecimal::setValue( 100, 2 );
+      } //end if
 
-
-
+   } //end method
 
 
 
@@ -1251,7 +1230,7 @@ class PHDollar {
          myLogger.logERROR( StringFormat( "Free margin is insufficient! (symbol: %s, num lots: %s)", sSymbol, numLots.toString() ) );
 
       PHDollar oEstPosValue( ( oFreeMarginPriorToTrade.toNormalizedDouble() - this._amt ) * AccountLeverage() );
-      PHPercent oAvailPercentMarginAfterTrade( this._amt / oFreeMarginPriorToTrade.toNormalizedDouble() );
+      PHPercent oAvailPercentMarginAfterTrade( this._amt / oFreeMarginPriorToTrade.toNormalizedDouble(), 2 );
       myLogger.logINFO( StringFormat( "Estimated Position Value: %s (figures not accurate until after order and Slippage taken into account)", oEstPosValue.toString() ) );
 
       myLogger.logINFO(StringFormat("FYI Margin Required to open one Lot: $ %.2f", MarketInfo(sSymbol, MODE_MARGINREQUIRED)));
