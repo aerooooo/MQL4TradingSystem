@@ -1,5 +1,6 @@
 
-#define _custom_types 1
+//Used by Prepreocessor to detect whether this include file has already been included
+#define _PHCustomTypes 1
 
 #define _TODAY      0
 #define _YESTERDAY  1     //You must not (cannot) work with the current bar's prices (since High/Low/Close all be set to the OPEN price!). 
@@ -12,21 +13,10 @@
 
 
 
-#ifndef _logger
+#ifndef _PHLogger
    #include <PHLogger.mqh>
 #endif
 
-
-/*
-//Redefine Double types
-#define PriceMove_CC    double
-#define Price_CC        double
-#define PriceMove_Ticks int      //smallest movement, therefore a singleton, therefore INTEGER
-#define PriceMove_Pips  double
-#define DepCcy_USD      double
-#define Lots            double
-#define Money           double
-*/
 
 enum PH_FX_PAIRS
   {
@@ -129,79 +119,122 @@ enum PH_OBJECT_STATUS
 
 
 
-class PHNumber2DP {
+
+
+
+//+------------------------------------------------------------------+
+//| PHDecimal  (class)
+//|
+//| A Class that stores it's decimal figures as Long!
+//|  e.g. the value 150.56 would be stored in a Long as '15056'
+//|
+//|  The size of MQL4's LONG type is 8 bytes (64 bits). The minimum value is -9,223,372,036,854,775,808, the maximum value is 9,223,372,036,854,775,807 - effectively giving me 19 digits!)
+//|   (Whereas The size of MQL's INT type is 4 bytes (32 bits). The minimal value is -2,147,483,648, the maximum value is 2,147,483,647 - which would only give me 10 digits to play with)
+//|
+//| It provides the following against given/supplied Doubles (I haven't implemented Class-dependant methods for that yet)
+//|   * Addition
+//|   * Substraction
+//|   * Multiplication
+//|   * Division
+//|   * Comparison 
+//|
+//| The *only* safe way to accss the internall-held value is via the 'toNormalizedDouble()' method
+//| (Even the 'toString()' method calls it first)
+//| 
+//|
+//| This is actually an Abstract Class - but I can't get the compiler to recognize this
+//| ...so I'll make the class UNUSUABLE - the Constructor won't take parameters and I'll have no 'set' methods!!!
+//|
+//+------------------------------------------------------------------+
+#define _MAX_PRECISION 10
+
+class PHDecimal {
    public:
       //Public Attributes
-      PH_OBJECT_STATUS  _eStatus;
+      PH_OBJECT_STATUS  _eStatus;   //I should make this private and only accessable via a "is" method, but Hey (shrug)
       
    private:
       //Private Attributes
-      /** Number of currency units in your precision */
-      long              _lUnits;
-      /** Precision of your value. */
-      int               _iPrecision;
+      long              _lUnits;       // The decimal value (Stored as a Long)
+      int               _iPrecision;   // Precision of your value.
       
    public:
       //Public Methods
-                  PHNumber2DP::PHNumber2DP();   //Constructor #0
-                  PHNumber2DP::PHNumber2DP( const double dUnits );  //Constructor #1
-         void     PHNumber2DP::add( const double dAddUnits );
-         void     PHNumber2DP::subtract( const double dSubUnits );
-         void     PHNumber2DP::multiply( const double dMultiplicationUnits );
-         void     PHNumber2DP::divide( const double dDivisionUnits );
-         bool     PHNumber2DP::compare( const double dComparitorUnits );
-         double   PHNumber2DP::toNormalizedDouble() const;
-         string   PHNumber2DP::toString()
-                     const { return( sFmt2dp( toNormalizedDouble() ) ); };
+         //Constructors (Abstract Class)
+                           PHDecimal::PHDecimal( const double dInitialUnits, const int iPrecision );
+
+      //Inherited Classes                  
+                  void     PHDecimal::add( const double dAddUnits );
+                  void     PHDecimal::subtract( const double dSubUnits );
+                  void     PHDecimal::multiply( const double dMultiplicationUnits );
+                  void     PHDecimal::divide( const double dDivisionUnits );
+                  bool     PHDecimal::compare( const double dComparitorUnits );
+                  double   PHDecimal::toNormalizedDouble() const;
+
+      //Will need to be overidden ('cos of "2dp")
+                  string   PHDecimal::toString() const 
+                           { return( sFmt2dp( toNormalizedDouble() ) ); };
 
    private:
       //Private methods
-         double   PHNumber2DP::prenormalizeOperand_round( const double dOperand ) const;
+         double   PHDecimal::prenormalizeOperand_round( const double dOperand ) const;
       
-}; //end Class PHNumber
+}; //end Class PHDecimal
 
+/*
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Constructor #0 (Unitialized/Empty)
+   //| PHDecimal - DUMMY Constructor (Unitialized/Empty)
+   //|
+   //| At one point I tried to turn this into an Abstract Class - but I couldn't 't get the compiler to recognize this
+   //| ...so I'll made the class UNUSUABLE by having only this one Constructor that couldn't take any values  ;o)
+   //| 
+   //| (Now I'm just keeping the code around for good measure)
    //|
    //+------------------------------------------------------------------+
-   PHNumber2DP::PHNumber2DP() 
+   PHDecimal::PHDecimal() 
    {
-      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       this._eStatus    = OBJECT_UNITIALIZED;
       this._lUnits     = NULL;
-      this._iPrecision = 2;
-      myLogger.logERROR( StringFormat( "final (Constructor #0) { _lUnits: %g, _iPrecision: %i (hard-coded) } ", _lUnits, _iPrecision ) );
+      this._iPrecision = NULL;
    };  //end Constructor
-
+*/
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Constructor #1 (Elemental)
+   //| PHDecimal - Constructor #1 (Elemental)
    //|
    //+------------------------------------------------------------------+
-   PHNumber2DP::PHNumber2DP( const double dInitialUnits ) 
+   PHDecimal::PHDecimal( const double dInitialUnits, const int iPrecision ) 
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: 2 (hard-coded) } ", dInitialUnits ) );
-
-      this._eStatus    = OBJECT_FULLY_INITIALIZED;
-      this._iPrecision = 2;
-
-      double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
-      double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
+      myLogger.logINFO( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: %i } ", dInitialUnits, iPrecision ) );
       
-      this._lUnits     = (int) dIntResult;
-      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      if ( iPrecision > _MAX_PRECISION ) {
+         this._eStatus    = OBJECT_UNITIALIZED;
+         this._lUnits     = NULL;
+         myLogger.logERROR( StringFormat( "Precision cannot be greater than %i", _MAX_PRECISION ) );
+      } else {
+
+         this._eStatus    = OBJECT_FULLY_INITIALIZED;
+         this._iPrecision = iPrecision;
+   
+         double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
+         double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
+         this._lUnits     = (int) dIntResult;
+   
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } //end if
    };  //end Constructor
 
 
+
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Addition
+   //| PHDecimal - Addition
    //|
    //+------------------------------------------------------------------+
-   void PHNumber2DP::add( const double dAddUnits ) 
+   void PHDecimal::add( const double dAddUnits ) 
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, dAddUnits ) );
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, dAddUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
 
@@ -226,13 +259,13 @@ class PHNumber2DP {
 
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Subtraction
+   //| PHDecimal - Subtraction
    //|
    //+------------------------------------------------------------------+
-   void PHNumber2DP::subtract( const double dSubUnits )
+   void PHDecimal::subtract( const double dSubUnits )
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
 
@@ -259,13 +292,13 @@ class PHNumber2DP {
 
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Multiplication
+   //| PHDecimal - Multiplication
    //|
    //+------------------------------------------------------------------+
-   void PHNumber2DP::multiply( const double dMultiplicationUnits )
+   void PHDecimal::multiply( const double dMultiplicationUnits )
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dMultplicationUnits: %g } ", _lUnits, dMultiplicationUnits ) );
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dMultplicationUnits: %g } ", _lUnits, dMultiplicationUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
 
@@ -297,13 +330,13 @@ class PHNumber2DP {
 
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Division
+   //| PHDecimal - Division
    //|
    //+------------------------------------------------------------------+
-   void PHNumber2DP::divide( const double dDivisionUnits )
+   void PHDecimal::divide( const double dDivisionUnits )
    {
       LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dDivisionUnits: %g } ", _lUnits, dDivisionUnits ) );
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dDivisionUnits: %g } ", _lUnits, dDivisionUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
 
@@ -341,20 +374,20 @@ class PHNumber2DP {
          myLogger.logERROR( "Division cannot be performed on an uninitialized Object!" );
          this._lUnits = NULL;
       }
-   }; //end mult()
+   }; //end divide()
 
 
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - Comparison
+   //| PHDecimal - Comparison
    //|
    //| In theory, this method is *superior* to attempting to COMPARE two DOUBLE values!
    //|
    //+------------------------------------------------------------------+
-   bool PHNumber2DP::compare( const double dComparitorUnits )
+   bool PHDecimal::compare( const double dComparitorUnits )
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logDEBUG( StringFormat( "param { dComparitorUnits: %g } ", dComparitorUnits ) );
+      myLogger.logINFO( StringFormat( "param { dComparitorUnits: %g } ", dComparitorUnits ) );
 
       bool isEqual = false;
       
@@ -377,11 +410,13 @@ class PHNumber2DP {
       
       return( isEqual );
       
-   }; //end sub()
+   }; //end comparison()
+
+
 
 
    //+------------------------------------------------------------------+
-   //| PHNumber2DP - toNormalizedDouble
+   //| PHDecimal - toNormalizedDouble
    //|
    //| This should be the *only* way to retrieve the value 
    //|  (although other methods can be a wrapper to this one)
@@ -391,7 +426,7 @@ class PHNumber2DP {
    //| So in reality, rather than Normalizing, the only work to do here is >>>simply shifting _lUnits 2 digits to the right!<<<
    //|
    //+------------------------------------------------------------------+
-   double   PHNumber2DP::toNormalizedDouble() const
+   double   PHDecimal::toNormalizedDouble() const
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
@@ -404,7 +439,7 @@ class PHNumber2DP {
 
          //deprecated#1    dRet = NormalizeDouble( dIntResult, this._iPrecision ) ;
          //deprecated#2    dRet = MathRound( dIntResult / dPrecisionMultiplier ) * dPrecisionMultiplier ;
-         //not necessary   dRet = PHNumber2DP::prenormalizeOperand_round( dIntResult );
+         //not necessary   dRet = PHDecimal::prenormalizeOperand_round( dIntResult );
          myLogger.logINFO( StringFormat( "final { dRet: %g, _iPrecision: %i } ", dRet, _iPrecision ) );
       } else {
          myLogger.logERROR( "No value to return on an uninitialized Object!" );
@@ -417,10 +452,17 @@ class PHNumber2DP {
 
 
 
-   // Determine the number in multiples of the least significant digit
-   // (for 2dp, the number must be in multiples of 0.01)
-   // This instance will Round to the nearest digit   e.g. 0.238 becomes 0.24 (for 2dp).  Alternative methods might StepUp (0.232 forced up to 0.24) or StepDown/Truncate (0.238 forced down to 0.23)
-   double PHNumber2DP::prenormalizeOperand_round( const double dOperand ) const
+   //+------------------------------------------------------------------+
+   //| PHDecimal   prenormalizeOperand_round
+   //|
+   //| Determine the number in multiples of the least significant digit
+   //|   e.g. for 2dp, the number must be in multiples of 0.01
+   //|
+   //| This instance will >>>Round to the nearest digit<<<   e.g. 0.238 becomes 0.24 (for 2dp).  
+   //|   Alternative methods might StepUp (0.232 forced up to 0.24) or StepDown/Truncate (0.238 forced down to 0.23)
+   //|
+   //+------------------------------------------------------------------+
+   double PHDecimal::prenormalizeOperand_round( const double dOperand ) const
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
@@ -433,6 +475,87 @@ class PHNumber2DP {
 
       return( dNormalizedOperand );   
    };
+
+
+
+
+
+
+/*
+
+
+//+------------------------------------------------------------------+
+//| PHDecimal2DP  (subclass of PHDecimal)
+//|
+//| A Class that stores it's decimal figures as Long!
+//|
+//| It provides the following against given/supplied Doubles (I haven't implemented Class-dependant methods for that yet)
+//|   * Addition
+//|   * Substraction
+//|   * Multiplication
+//|   * Division
+//|   * Comparison 
+//|
+//| The *only* safe way to accss the internall-held value is via the 'toNormalizedDouble()' method
+//| (Even the 'toString()' method calls it first)
+//| 
+//+------------------------------------------------------------------+
+class PHDecimal2DP {
+   
+   public:
+         virtual           PHDecimal::PHDecimal();                        //Constructor #0
+         virtual           PHDecimal::PHDecimal( const double dUnits );   //Constructor #1
+      
+
+
+}; //end Class PHDecimal2DP
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal2DP - Constructor #0 (Unitialized/Empty)
+   //|
+   //+------------------------------------------------------------------+
+   PHDecimal2DP::PHDecimal2DP() 
+   {
+      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      this._eStatus    = OBJECT_UNITIALIZED;
+      this._lUnits     = NULL;
+      this._iPrecision = 2;
+      myLogger.logERROR( StringFormat( "final (Constructor #0) { _lUnits: %g, _iPrecision: %i (hard-coded) } ", _lUnits, _iPrecision ) );
+   };  //end Constructor
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal2DP - Constructor #1 (Elemental)
+   //|
+   //+------------------------------------------------------------------+
+   PHDecimal2DP::PHDecimal2DP( const double dInitialUnits ) 
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: 2 (hard-coded) } ", dInitialUnits ) );
+
+      this._eStatus    = OBJECT_FULLY_INITIALIZED;
+      this._iPrecision = 2;
+
+      double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
+      double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
+      
+      this._lUnits     = (int) dIntResult;
+      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+   };  //end Constructor
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -485,7 +608,16 @@ class PHPercent {
 
 
 
-class PHTicks {
+
+
+
+
+
+
+
+
+class PHTicks 
+{
       //<<<Private Attributes>>>
       private:
          //int    _iTicks;    //always an integer, a count of whole ticks
@@ -1139,7 +1271,7 @@ class PHDollar {
 class PHQuote  {
       //<<<Private Attributes>>>
       private:
-         PHNumber _val;
+         PHDecimal _val;
 
       //<<<Public Methods>>>
       public:
