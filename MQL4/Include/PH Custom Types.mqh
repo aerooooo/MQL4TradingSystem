@@ -120,16 +120,331 @@ T StringToEnum(string str,T enu)
   }
 
 
+enum PH_OBJECT_STATUS
+  {
+   OBJECT_UNITIALIZED,
+   OBJECT_PARTIALLY_INITIALIZED,
+   OBJECT_FULLY_INITIALIZED
+  };
 
 
-struct PHNumber {
+
+class PHNumber2DP {
+   public:
+      //Public Attributes
+      PH_OBJECT_STATUS  _eStatus;
+      
+   private:
+      //Private Attributes
       /** Number of currency units in your precision */
-      double d_units;
+      long              _lUnits;
       /** Precision of your value. */
-      int i_precision;
-}; //end Struct
+      int               _iPrecision;
+      
+   public:
+      //Public Methods
+                  PHNumber2DP::PHNumber2DP();   //Constructor #0
+                  PHNumber2DP::PHNumber2DP( const double dUnits );  //Constructor #1
+         void     PHNumber2DP::add( const double dAddUnits );
+         void     PHNumber2DP::subtract( const double dSubUnits );
+         void     PHNumber2DP::multiply( const double dMultiplicationUnits );
+         void     PHNumber2DP::divide( const double dDivisionUnits );
+         bool     PHNumber2DP::compare( const double dComparitorUnits );
+         double   PHNumber2DP::toNormalizedDouble() const;
+         string   PHNumber2DP::toString()
+                     const { return( sFmt2dp( toNormalizedDouble() ) ); };
+
+   private:
+      //Private methods
+         double   PHNumber2DP::prenormalizeOperand_round( const double dOperand ) const;
+      
+}; //end Class PHNumber
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Constructor #0 (Unitialized/Empty)
+   //|
+   //+------------------------------------------------------------------+
+   PHNumber2DP::PHNumber2DP() 
+   {
+      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      this._eStatus    = OBJECT_UNITIALIZED;
+      this._lUnits     = NULL;
+      this._iPrecision = 2;
+      myLogger.logERROR( StringFormat( "final (Constructor #0) { _lUnits: %g, _iPrecision: %i (hard-coded) } ", _lUnits, _iPrecision ) );
+   };  //end Constructor
 
 
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Constructor #1 (Elemental)
+   //|
+   //+------------------------------------------------------------------+
+   PHNumber2DP::PHNumber2DP( const double dInitialUnits ) 
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: 2 (hard-coded) } ", dInitialUnits ) );
+
+      this._eStatus    = OBJECT_FULLY_INITIALIZED;
+      this._iPrecision = 2;
+
+      double dPrecisionPosMultiplier = MathPow( 10, this._iPrecision );
+      double dIntResult = dInitialUnits * dPrecisionPosMultiplier;
+      
+      this._lUnits     = (int) dIntResult;
+      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+   };  //end Constructor
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Addition
+   //|
+   //+------------------------------------------------------------------+
+   void PHNumber2DP::add( const double dAddUnits ) 
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, dAddUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+         // Determine the number in multiples of the least significant digit (for 2dp, the number must be in multiples of 0.01)
+         double dNormalizedOperand = prenormalizeOperand_round( dAddUnits );
+         
+         // Step #2: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
+         long lNormalizedValue = (long) ( dNormalizedOperand * MathPow( 10, this._iPrecision ));
+         myLogger.logDEBUG( StringFormat( "Step#2 NormalizedValue [long]: %g ", lNormalizedValue ) );
+
+         // Step #3: Finally, perform the operation (add) - apply the Operand to the Class' value
+         this._lUnits += lNormalizedValue;
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   };  //end add()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Subtraction
+   //|
+   //+------------------------------------------------------------------+
+   void PHNumber2DP::subtract( const double dSubUnits )
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+         // Determine the number in multiples of the least significant digit (for 2dp, the number must be in multiples of 0.01)
+         double dNormalizedOperand = prenormalizeOperand_round( dSubUnits );
+
+         
+         // Step #2: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
+         long lNormalizedValue = (long) ( dNormalizedOperand * MathPow( 10, this._iPrecision ));
+         myLogger.logDEBUG( StringFormat( "Step#2 NormalizedValue [long]: %g ", lNormalizedValue ) );
+
+
+         // Step #3: Finally, perform the operation (subtract) - apply the Operand to the Class' value
+         this._lUnits -= lNormalizedValue;
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   }; //end sub()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Multiplication
+   //|
+   //+------------------------------------------------------------------+
+   void PHNumber2DP::multiply( const double dMultiplicationUnits )
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dMultplicationUnits: %g } ", _lUnits, dMultiplicationUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+         // Determine the number in multiples of the least significant digit (for 2dp, the number must be in multiples of 0.01)
+         double dNormalizedOperand = prenormalizeOperand_round( dMultiplicationUnits );
+
+         
+         // Step #2: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
+         long lNormalizedValue = (long) ( dNormalizedOperand * MathPow( 10, this._iPrecision ));
+         myLogger.logDEBUG( StringFormat( "Step#2 NormalizedValue [long]: %g ", lNormalizedValue ) );
+
+
+         // Step #3a: Finally, perform the operation (multiplication) - apply the Operand to the Class' value
+         long lOverMultipliedValue = (this._lUnits * lNormalizedValue);
+         myLogger.logDEBUG( StringFormat( "Step#3a Over-Multiplied Value [long]: %g ", lOverMultipliedValue ) );
+
+         // Step #3b: Unfortunately, you've not only multiplied the Units, but also the Precision (by 2dp). 
+         // So shift the intermediate result right by '_iPrecision' digits
+         this._lUnits = (lOverMultipliedValue / (long) MathPow( 10, this._iPrecision ));  //e.g. divide by 100 (for 2dp)
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Multiplication cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   }; //end multiply()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Division
+   //|
+   //+------------------------------------------------------------------+
+   void PHNumber2DP::divide( const double dDivisionUnits )
+   {
+      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "_lUnits: %g; param { dDivisionUnits: %g } ", _lUnits, dDivisionUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+         // Determine the number in multiples of the least significant digit (for 2dp, the number must be in multiples of 0.01)
+         double dNormalizedOperand = prenormalizeOperand_round( dDivisionUnits );
+
+         
+         // Step #2: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
+         long lNormalizedValue = (long) ( dNormalizedOperand * MathPow( 10, this._iPrecision ));
+         myLogger.logDEBUG( StringFormat( "Step#2 NormalizedValue [long]: %g ", lNormalizedValue ) );
+
+
+         // Step #3: Finally, perform the operation (division) - apply the Operand to a temporary variable*
+         // Note that the temp variable also needs a double to temporarily handle the decimals
+         double dDividedResult = (this._lUnits / (double) lNormalizedValue);     //e.g. 1.666666666
+         myLogger.logDEBUG( StringFormat( "Step#3 dDividedResult [double]: %g ", dDividedResult ) );
+
+         // Step #4: I'll also normalize the result to the correct DPs - rounding as necessary
+         double dNormalizedResult = prenormalizeOperand_round( dDividedResult );  //e.g. 1.67 (@ 2dp)
+         myLogger.logDEBUG( StringFormat( "Step#4 dNormalizedResult [double]: %g ", dNormalizedResult ) );
+
+         // Step #5: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
+         lNormalizedValue = (long) ( dNormalizedResult * MathPow( 10, this._iPrecision ));
+         myLogger.logDEBUG( StringFormat( "Step#5 Re-NormalizedValue [long]: %g ", lNormalizedValue ) );
+
+         this._lUnits = lNormalizedValue;
+
+/*
+         // Step #3b: Unfortunately, you've not only multiplied the Units, but also the Precision (by 2dp)
+         this._lUnits = (lOverMultipliedValue / (long) MathPow( 10, this._iPrecision ));  //i.e. divide by 100 (for 2dp)
+*/
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Division cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   }; //end mult()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - Comparison
+   //|
+   //| In theory, this method is *superior* to attempting to COMPARE two DOUBLE values!
+   //|
+   //+------------------------------------------------------------------+
+   bool PHNumber2DP::compare( const double dComparitorUnits )
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logDEBUG( StringFormat( "param { dComparitorUnits: %g } ", dComparitorUnits ) );
+
+      bool isEqual = false;
+      
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+         double dNormalizedOperand = prenormalizeOperand_round( dComparitorUnits );
+         
+         // Step #2: "Push"/cast the Operand into a Long
+         long lNormalizeValue = (long) ( dNormalizedOperand * MathPow( 10, this._iPrecision ));
+
+
+         // Step #3: Finally, perform the operation (comparison) - apply the Operand to the Class' value
+         if ( this._lUnits == lNormalizeValue )
+            isEqual = true;
+
+         myLogger.logINFO( StringFormat( "final { this._lUnits: %g, lNormalizeValue: %i } ", this._lUnits, lNormalizeValue ) );
+
+      }
+      
+      return( isEqual );
+      
+   }; //end sub()
+
+
+   //+------------------------------------------------------------------+
+   //| PHNumber2DP - toNormalizedDouble
+   //|
+   //| This should be the *only* way to retrieve the value 
+   //|  (although other methods can be a wrapper to this one)
+   //| Actually, 'normalization' (i.e. ensuring only multiples of 0.01) is unnecessary, since the _lUnits is already normalised to 2dDPs  e.g. "1234" => 12.34
+   //| But I'm keeping the name for consistency with my higher-level classes
+   //|
+   //| So in reality, rather than Normalizing, the only work to do here is >>>simply shifting _lUnits 2 digits to the right!<<<
+   //|
+   //+------------------------------------------------------------------+
+   double   PHNumber2DP::toNormalizedDouble() const
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      double dRet;
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+      
+         double dUnits = (double) this._lUnits;
+         double dPrecisionMultiples = MathPow( 10, -this._iPrecision );  //Note the >>>minus power<<< i.e. 10^2 becomes 10^-2.  This will return my 'multiples of least significant digit' e.g. 0.01
+         dRet = dUnits * dPrecisionMultiples;
+
+         //deprecated#1    dRet = NormalizeDouble( dIntResult, this._iPrecision ) ;
+         //deprecated#2    dRet = MathRound( dIntResult / dPrecisionMultiplier ) * dPrecisionMultiplier ;
+         //not necessary   dRet = PHNumber2DP::prenormalizeOperand_round( dIntResult );
+         myLogger.logINFO( StringFormat( "final { dRet: %g, _iPrecision: %i } ", dRet, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "No value to return on an uninitialized Object!" );
+         dRet = NULL;
+      }
+
+      return( dRet );
+   };  //end toNormalizedDouble()
+
+
+
+
+   // Determine the number in multiples of the least significant digit
+   // (for 2dp, the number must be in multiples of 0.01)
+   // This instance will Round to the nearest digit   e.g. 0.238 becomes 0.24 (for 2dp).  Alternative methods might StepUp (0.232 forced up to 0.24) or StepDown/Truncate (0.238 forced down to 0.23)
+   double PHNumber2DP::prenormalizeOperand_round( const double dOperand ) const
+   {
+      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      double dNormalizedOperand;
+      {
+         double dPrecisionMultiples = MathPow( 10, -this._iPrecision );  //Note the minus power i.e. 10^2 becomes 10^-2.  This will return my 'multiples of least significant digit' e.g. 0.01
+         dNormalizedOperand = MathRound( dOperand / dPrecisionMultiples ) * dPrecisionMultiples; //actually performs the normalization.  e.g. 0.238 becomes 0.24 (for 2dp)
+         myLogger.logINFO( StringFormat( "final: Pre-NormalizedOperand - Rounded [double]: %g ", dNormalizedOperand ) );
+      };
+
+      return( dNormalizedOperand );   
+   };
+
+
+
+
+//+------------------------------------------------------------------+
+//| PHPercent
+//|
+//| Admittidly, a rather simple numerical object
+//| But one who's rules mean that it can only exist between 1 and 100
+//| So it kinda has that login 'baked in' and *you don't have to worry about it*
+//|
+//+------------------------------------------------------------------+
 class PHPercent {
 
       private:
@@ -820,7 +1135,7 @@ class PHDollar {
 
 
 
-
+/*
 class PHQuote  {
       //<<<Private Attributes>>>
       private:
@@ -834,7 +1149,7 @@ class PHQuote  {
                      const { return( DoubleToStr( _val.d_units, _val.i_precision ) ); };
          PHTicks  PHQuote::toTicks();
 }; //end Class
-
+*/
 
 
 
