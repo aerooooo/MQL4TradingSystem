@@ -1542,6 +1542,9 @@ class PHTicks : public PHCurrDecimal
 
 
 //=====================================================================================================================================================================================================
+class PHDollar;   //Forward Declaration [https://www.mql5.com/en/forum/217118]
+                  // Note: You still require a PHDollar signature further down with all the necessary skeleton Constructors and Methods - so that calls can be resolved correctly at compile-time
+                  //       (You just don't have to implement the Bodies)
 
 class PHLots : public PHCurrDecimal 
 {
@@ -1574,7 +1577,6 @@ class PHLots : public PHCurrDecimal
 
       //<<<Private Attributes>>>
       private:
-//         double    _dVolumeMin, _dVolumeStep, _dVolumeMax, _dStandardContractSize;
            PHDecimal _volumeMin_Decimal, _volumeStep_Decimal, _volumeMax_Decimal, _stdCntSize_Decimal;  //Obviously all initially, un-initialized
 
 
@@ -1593,18 +1595,9 @@ class PHLots : public PHCurrDecimal
          string            PHLots::objectToString() const
                            { return( StringFormat( "PHLots={ LOT_MIN: %s, LOT_MAX: %s, LOT_STEP: %s, LOT_SIZE: %s, %s }", _volumeMin_Decimal.toString(), _volumeMax_Decimal.toString(), _volumeStep_Decimal.toString(), _stdCntSize_Decimal.toString(), PHCurrDecimal::objectToString() ) ); };
 
-/* old way...
-         double   PHLots::getVolumeMin()            const { return _dVolumeMin; };
-         double   PHLots::getVolumeMax()            const { return _dVolumeMax; };
-         double   PHLots::getVolumeStep()           const { return _dVolumeStep; };
-         double   PHLots::getStandardContractSize() const { return _StandardContractSize; };
-*/
-
-
       //<<<Private Methods>>>
       private:
          void              PHLots::commonConstructor( const PH_FX_PAIRS eSymbol );
-
 
       //<<<Protected Methods>>>
       protected:
@@ -1681,7 +1674,7 @@ class PHLots : public PHCurrDecimal
    //+------------------------------------------------------------------+
    void PHLots::setValue( const double dLots, const PH_FX_PAIRS eSymbol )
    {
-      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "passed params { dValue: %f, sSymbol: %s }", dLots, EnumToString(eSymbol) ) );
 
       PHLots::commonConstructor( eSymbol );
@@ -1733,10 +1726,6 @@ class PHLots : public PHCurrDecimal
 
 
 
-
-
-/* temp disabled...
-
    //+------------------------------------------------------------------+
    //| PHLots - sizePercentRiskModel() (Derive num Lots given a StopLossWidth)
    //|
@@ -1754,8 +1743,7 @@ class PHLots : public PHCurrDecimal
    {
       LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
    
-      string sSymbol = EnumToString( eSymbol );
-      myLogger.logDEBUG( StringFormat( "passed params { sSymbol: %s, StopLoss Width: %s, oPercentageOfEquityToRisk: %f }", sSymbol, oTicks_StopLossWidth.toString(), oPercentageOfEquityToRisk.getFigure() ) );
+      myLogger.logDEBUG( StringFormat( "passed params { sSymbol: %s, StopLoss Width: %s, oPercentageOfEquityToRisk: %f }", this._sSymbol, oTicks_StopLossWidth.toString(), oPercentageOfEquityToRisk.getFigure() ) );
 
 //Call to Super() ???
 //PHLots::PHLots0( sSymbol );
@@ -1774,7 +1762,9 @@ class PHLots : public PHCurrDecimal
       // Get a *rough shot* at calculating the Risk by calculating my risk at the standard lot size (1.0 Lot = 100,000 Units)
       // (I probably won't be able to afford this, but my algorithm will later scale it down into lots of x0.01 automatically)
       PHLots   oLots( 1.0, eSymbol );
-      PHDollar oRiskValueOf1Lot( eSymbol, oTicks_StopLossWidth, oLots );   //(Calling a non-default PHDollar Constructor)
+      
+      PHDollar oRiskValueOf1Lot();
+//      PHDollar oRiskValueOf1Lot( eSymbol, oTicks_StopLossWidth, oLots );   //(Calling a non-default PHDollar Constructor)
       myLogger.logDEBUG( StringFormat( "Value of a %s Tick move with a %s x Contract: %s (Represents Risk)", oTicks_StopLossWidth.toString(), oLots.toString(), oRiskValueOf1Lot.toString() ) );
          
       //A subset of the entire Account that you are prepared to lose for this trade, in terms of Deposit Currency. Each trade should never risk more than this.
@@ -1788,14 +1778,32 @@ class PHLots : public PHCurrDecimal
       //calculate the RATIO of "what I can afford to lose/risk each trade" (e.g. 1% of equity) divided by "the cost to open one whole Lot".
       //In this case the ratio directly becomes the "number of lots"!
       //This may result in a rounding up of the requested Lots, which *may* in turn *slightly* exceed my Max Permitted Risk, but not enough to care about
-      this._dLots = NormalizeDouble( ( oMaxPermittedRiskValue.toNormalizedDouble() / oRiskValueOf1Lot.toNormalizedDouble() ), 2);
+            // Use 'setValue() instead? >>> this._dLots = NormalizeDouble( ( oMaxPermittedRiskValue.toNormalizedDouble() / oRiskValueOf1Lot.toNormalizedDouble() ), 2);
+      setValue( NormalizeDouble( ( oMaxPermittedRiskValue.toNormalizedDouble() / oRiskValueOf1Lot.toNormalizedDouble() ), 2), eSymbol );
       myLogger.logINFO(StringFormat( "Number of Lots (adjusted as per Max Permitted Risk per Trade): %s (given a Stop Loss Width of %s)", this.toString(), oTicks_StopLossWidth.toString() ) );
 
    
    };
-   
-...*/
 
+
+
+
+
+class PHDollar : public PHDecimal {
+
+// <<<Attributes>>>
+  
+   public:
+            int   _iInt;
+            double   _iDbl;
+   public:
+      //Constructors (Abstract Class)
+                            // Constructor #0 [Default] - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
+                           PHDollar::PHDollar() :  _iInt( -1 ) {};
+      
+                           PHDollar::PHDollar( const double amt )  : _iDbl( amt ) {};
+                           
+}; //end Class PHDecimal
 
 
 
