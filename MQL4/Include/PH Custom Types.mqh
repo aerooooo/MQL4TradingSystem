@@ -76,7 +76,15 @@ enum PH_TRADE_STATUS
    TRDSTATUS_CLOSED
   };
 
-
+enum PH_OPERATOR
+  {
+   gt,
+   gte,
+   lt,
+   lte,
+   eq,
+   ne
+  };
 
 /*
 enum PH_INITIAL_STOPLOSS_ALGORITHM {
@@ -176,6 +184,9 @@ enum PH_OBJECT_STATUS
 #define _MAX_PRECISION 10
 
 class PHDecimal {
+
+// <<<Attributes>>>
+  
    public:
       //Public Attributes
       
@@ -183,32 +194,49 @@ class PHDecimal {
       //Protected Attributes
       long              _lUnits;       // The decimal value (Stored as a Long)
       int               _iPrecision;   // Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
-      PH_OBJECT_STATUS  _eStatus;   //I should make this private and only accessible via a "is" method, but Hey (shrug)
+      PH_OBJECT_STATUS  _eStatus;      //I should make this private and only accessible via a "is" method, but Hey (shrug)
       
+
+// <<<Methods>>>
    public:
-         //Constructors (Abstract Class)
-                           PHDecimal::PHDecimal(); // Constructor #0 - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
+      //Constructors (Abstract Class)
+                            // Constructor #0 [Default] - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
+                           PHDecimal::PHDecimal() : _eStatus( OBJECT_UNITIALIZED ), _lUnits( -1 ), _iPrecision( -1 ) {};
+                           // Construct #1 [Parametric] (Regular Constructor)
                            PHDecimal::PHDecimal( const double dInitialUnits, const int iPrecision );  // Constructor #1 - The "real" Constructor
 
-         //Public Methods
+      //Public Methods
                   void     PHDecimal::setValue( const double dInitialUnits, const int iPrecision );
                   void     PHDecimal::unsetValue();
 
-                  void     PHDecimal::add     ( const double dAddUnits );
-                  void     PHDecimal::subtract( const double dSubUnits );
-                  void     PHDecimal::multiply( const double dMultiplicationUnits );
-                  void     PHDecimal::divide  ( const double dDivisionUnits );
-                  bool     PHDecimal::compare ( const double dComparitorUnits );
-                  bool     PHDecimal::lessThanOrEqualTo ( const PHDecimal& oComparitorUnits ) const;
+                  void     PHDecimal::add     ( const double     dAddUnits );
+                  void     PHDecimal::add     ( const PHDecimal& oAddDecimal );
+                  void     PHDecimal::subtract( const double     dSubUnits );
+                  void     PHDecimal::subtract( const PHDecimal& oSubDecimal );
+                  void     PHDecimal::multiply( const double     dMultiplicationUnits );
+                  void     PHDecimal::divide  ( const double     dDivisionUnits );
+                  bool     PHDecimal::compare ( const double     dComparitorUnits );
+                  bool     PHDecimal::compare ( const PHDecimal& oComparitorUnits );
+ /*
+                  bool     PHDecimal::gt      ( const PHDecimal& oComparitorUnits ) const;      //greater than
+                  bool     PHDecimal::gte     ( const PHDecimal& oComparitorUnits ) const;      //greater than
+                  bool     PHDecimal::lt      ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
+                  bool     PHDecimal::lte     ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
+*/
+         bool     PHDecimal::operatorAndOperand( const PH_OPERATOR eOp, const PHDecimal& oOperand ) const;
                   
                   bool     PHDecimal::isValueReadable() const;
                   double   PHDecimal::toNormalizedDouble() const;
                   string   PHDecimal::toString() const 
                            { string sFormatString = StringFormat( "%%.%if", _iPrecision ); return( StringFormat( sFormatString, toNormalizedDouble() ) ); };
+                  string   PHDecimal::objectToString() const
+                           { return( StringConcatenate( "PHDecimal={ Units : ", _lUnits, " , Precision: ", _iPrecision, " , Status: ", EnumToString(_eStatus), " }" ) ); };
 
    private:
-         //Private methods
+      //Private methods
                   double   PHDecimal::prenormalizeOperand_round( const double dOperand ) const;
+   protected:
+      //Protected methods
                   long     PHDecimal::normalizeAndShiftLeft( const double dOperand ) const;
       
 }; //end Class PHDecimal
@@ -218,16 +246,17 @@ class PHDecimal {
    //| PHDecimal - DUMMY Constructor #0 (Unitialized/Empty)
    //|
    //+------------------------------------------------------------------+
+/*
    PHDecimal::PHDecimal() 
    {
       this._eStatus    = OBJECT_UNITIALIZED;
-      this._lUnits     = NULL;
-      this._iPrecision = NULL;
+      this._lUnits     = -1;
+      this._iPrecision = -1;
    };  //end Constructor
-
+*/
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Constructor #1 (Elemental)
+   //| PHDecimal - Constructor #1   [Elemental]
    //|
    //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
    //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
@@ -240,6 +269,9 @@ class PHDecimal {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "params (Constructor #1) { dUnits: %g, iPrecision: %i } ", dInitialUnits, iPrecision ) );
 
+      //Call Default Construction (Uninitialize Attributes)
+      PHDecimal();
+      
       setValue( dInitialUnits, iPrecision );
       myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", this._lUnits, this._iPrecision ) );
             
@@ -248,7 +280,7 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - SetValue()         [using Atomic Parameters]
+   //| PHDecimal - SetValue()           [Elemental]
    //|
    //| Sets both the 'Units' and 'Precision'
    //|
@@ -294,11 +326,12 @@ class PHDecimal {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       
       this._eStatus    = OBJECT_UNITIALIZED;
-      this._lUnits     = NULL;
-      this._iPrecision = NULL;
+      this._lUnits     = -1;
+      this._iPrecision = -1;
 
       myLogger.logINFO( "No params. Object has been unintialized. Values set to NULL" );
-   };  //end Constructor
+
+   }; //end PHDecimal::unsetValue()
 
 
    //+------------------------------------------------------------------+
@@ -322,7 +355,7 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Addition()
+   //| PHDecimal - Addition()  [Elemental]
    //|
    //+------------------------------------------------------------------+
    void PHDecimal::add( const double dAddUnits ) 
@@ -344,7 +377,36 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Subtraction()
+   //| PHDecimal - Addition()  [Object]
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::add( const PHDecimal& oAddDecimal ) 
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, oAddDecimal._lUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Ensure 'this' and 'that' are of the same Precision
+         if ( this._iPrecision != oAddDecimal._iPrecision ) {
+            myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet! (The Object has also been invalidated)" );
+            unsetValue();
+         } else {
+            this._lUnits += oAddDecimal._lUnits;
+            
+         } //end if
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   };  //end add()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - Subtraction()  [Elemental]
    //|
    //+------------------------------------------------------------------+
    void PHDecimal::subtract( const double dSubUnits )
@@ -354,7 +416,7 @@ class PHDecimal {
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
 
-         this._lUnits += normalizeAndShiftLeft( dSubUnits);
+         this._lUnits -= normalizeAndShiftLeft( dSubUnits);
 
          myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
       } else {
@@ -366,12 +428,41 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Multiplication()
+   //| PHDecimal - Subtraction()  [Object]
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::subtract( const PHDecimal& oSubDecimal ) 
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dAddUnits: %g } ", _lUnits, oSubDecimal._lUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         // Ensure 'this' and 'that' are of the same Precision
+         if ( this._iPrecision != oSubDecimal._iPrecision ) {
+            myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet! (The Object has also been invalidated)" );
+            unsetValue();
+         } else {
+            this._lUnits -= oSubDecimal._lUnits;
+            
+         } //end if
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   };  //end add()
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - Multiplication()  [Elemental]
    //|
    //+------------------------------------------------------------------+
    void PHDecimal::multiply( const double dMultiplicationUnits )
    {
-      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "_lUnits: %g; param { dMultplicationUnits: %g } ", _lUnits, dMultiplicationUnits ) );
 
       if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
@@ -398,7 +489,7 @@ class PHDecimal {
             myLogger.logDEBUG( StringFormat( "Step#3a Over-Multiplied Value [long]: %g %s", lOverMultipliedValue, s3 ) );
             }
    
-            // Step #3b: Unfortunately, you've not only multiplied the Units, but also the Precision (by 2dp). 
+            // Step #3b: Unfortunately, you've not only multiplied the Units, but also the Precision (by e.g. 2dp). 
             // So shift the intermediate result right by '_iPrecision' digits
             this._lUnits = (lOverMultipliedValue / (long) MathPow( 10, this._iPrecision ));  //e.g. divide by 100 (for 2dp)
    
@@ -416,7 +507,7 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Division()
+   //| PHDecimal - Division()  [Elemental]
    //|
    //+------------------------------------------------------------------+
    void PHDecimal::divide( const double dDivisionUnits )
@@ -429,15 +520,24 @@ class PHDecimal {
          // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
          // Step #2: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
          long lNormalizedValue = normalizeAndShiftLeft( dDivisionUnits );
+         myLogger.logDEBUG( StringFormat( "Step#1&#2 lNormalizedValue [long]: %i ", lNormalizedValue ) );
 
          // Step #3: Finally, perform the operation (division) - apply the Operand to a temporary variable*
          // Note that the temp variable also needs a double to temporarily handle the decimals
-         double dDividedResult = (this._lUnits / (double) lNormalizedValue);     //e.g. 1.666666666
+         double dDividedResult = (this._lUnits / (double) lNormalizedValue);     //e.g. 1.666666666...
          myLogger.logDEBUG( StringFormat( "Step#3 dDividedResult [double]: %g ", dDividedResult ) );
 
          // Step #4: I'll also normalize the result to the correct DPs - rounding as necessary
-         double dNormalizedResult = prenormalizeOperand_round( dDividedResult );  //e.g. 1.67 (@ 2dp)
+         double dNormalizedResult = prenormalizeOperand_round( dDividedResult );  //e.g. 1.66667 (@ 5dp)
          myLogger.logDEBUG( StringFormat( "Step#4 dNormalizedResult [double]: %g ", dNormalizedResult ) );
+         {
+            string s1 = string( dDividedResult );
+            string s2 = string( dNormalizedResult );
+            int i1 = StringLen( s1 );
+            int i2 = StringLen( s2 );
+            if ( i2 < i1 )
+            myLogger.logWARN( StringFormat( "Possible truncation detected - may result in rounding errors { %s != %s }", s1, s2 ) );
+         }
 
          // Step #5: "Push"/cast the Operand into a Long, shifted left by '_iPrecision' digits
          lNormalizedValue = (long) ( dNormalizedResult * MathPow( 10, this._iPrecision ));
@@ -455,7 +555,7 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Comparison()
+   //| PHDecimal - Comparison()  [Elemental]
    //|
    //| This method is *superior* to attempting to COMPARE two DOUBLE values!
    //|
@@ -493,34 +593,93 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - lessThanOrEqualTo()
+   //| PHDecimal - Comparison()  [Object]
+   //|
+   //| This method is *superior* to attempting to COMPARE two DOUBLE values!
+   //|
+   //+------------------------------------------------------------------+
+   bool PHDecimal::compare( const PHDecimal& oComparitorUnits )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "param { oComparitorUnits: %s } ", oComparitorUnits.toString() ) );
+
+      bool isEqual = false;
+      
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+/* Potential way of comparinng two objects diff precisions...
+      xx   // Step #1: pre-normalize the operand (in it's original double form) - in case the next dp pushes the lowest digit value up by one
+      xx   double dNormalizedOperand = prenormalizeOperand_round( dComparitorUnits );
+
+      xx   // Step #2: Cast the operand into a PHDecimal *over the same Precision) as this object
+      xx   PHDecimal oThat( dComparitorUnits, this._iPrecision );
+*/
+         // Ensure 'this' and 'that' are of the same Precision
+         if ( this._iPrecision != oComparitorUnits._iPrecision ) {
+            myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet! (The Object remains valid)" );
+         } else {
+            // Step #3: Now it's simply a matter of comparing the Long Units (now they have common Precisions)
+            isEqual = ( this._lUnits == oComparitorUnits._lUnits ) ? true : false;
+            
+         } //end if
+
+         myLogger.logINFO( StringFormat( "final { this._lUnits: %g, oThat._lUnits: %i } ", this._lUnits, oComparitorUnits._lUnits ) );
+
+      } else
+         myLogger.logERROR( "Comparison (eq) cannot be performed on an uninitialized Object!" );
+      
+      return( isEqual );
+      
+   }; //end comparison()
+
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - operatorAndOperand()
    //|
    //| 
    //|
    //+------------------------------------------------------------------+
-   bool     PHDecimal::lessThanOrEqualTo ( const PHDecimal& oComparitorUnits ) const
+   bool     PHDecimal::operatorAndOperand( const PH_OPERATOR eOp, const PHDecimal& oOperand ) const
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "param { dComparitorUnits: %s } ", oComparitorUnits.toString() ) );
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "param { dComparitorUnits: %s } ", oOperand.toString() ) );
       
-      bool isLessThanOrEqualTo = false;
-      
-      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+      bool isConditionSatisfied = false;
 
-         // Ensure 'this' and 'that' are of the same Precision
-         if ( this._iPrecision != oComparitorUnits._iPrecision ) {
-            myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet!" );
+      if ( this.isValueReadable() && oOperand.isValueReadable() ) {
+         //both objects are fully initialized
+         
+         if ( this._iPrecision != oOperand._iPrecision ) {
+            myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet! (The Object remains valid)" );
          } else {
-            isLessThanOrEqualTo = ( this._lUnits <= oComparitorUnits._lUnits ) ? true : false;
-         } //end if
-      
-      } else
-         myLogger.logERROR( "Comparison (lte) cannot be performed on an uninitialized Object!" );
-      
-      return( isLessThanOrEqualTo );
+            //both objects are of the same precision - we can proceed with the comparison
+            switch (eOp)
+            {
+               case gt : isConditionSatisfied = ( this._lUnits  > oOperand._lUnits ) ? true : false; break;
+               case lt : isConditionSatisfied = ( this._lUnits  < oOperand._lUnits ) ? true : false; break;
+               case gte: isConditionSatisfied = ( this._lUnits >= oOperand._lUnits ) ? true : false; break;
+               case lte: isConditionSatisfied = ( this._lUnits <= oOperand._lUnits ) ? true : false; break;
+               case eq : isConditionSatisfied = ( this._lUnits == oOperand._lUnits ) ? true : false; break;
+               case ne : isConditionSatisfied = ( this._lUnits != oOperand._lUnits ) ? true : false; break;
+            
+            } //end switch
 
-   
+         }; //end if
+      
+      } else {
+         //one of the objects is not fully initialized
+         myLogger.logERROR( "Comparisons cannot be performed on an uninitialized (nor partially initialized) Object!" );
+      }; //end if
+     
+      return( isConditionSatisfied );
    }
+
+
+
+
+
 
 
 
@@ -637,45 +796,76 @@ class PHDecimal {
 //|   >> Market Currency Symbol
 //|
 //+------------------------------------------------------------------+
-class PHCurrDecimal : public PHDecimal {
+class PHCurrDecimal : public PHDecimal 
+{
+/* <<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
 
-   //<<< Attributes >>>
+*/
    protected:
-         PH_FX_PAIRS       _eSymbol;
-         string            _sSymbol;   //I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
-         double            _dCashRoundingStep; // The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
+      //Protected Attributes
+      PH_FX_PAIRS       _eSymbol;
+      string            _sSymbol;   //I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
+      double            _dCashRoundingStep; // The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
 
-//       //Inherited Attributes from PHDecimal
-//       PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
-//       long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
-//       int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
 
-   //<<< Methods >>>
+// <<< Methods >>>
    public:
-         //Constructors
-                           PHCurrDecimal::PHCurrDecimal() : _eSymbol( NULL), _sSymbol( NULL), _dCashRoundingStep( NULL), PHDecimal() { } ;   //Construct an UNINITIALIZED object
-                           PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const PH_FX_PAIRS eSymbol );  // Constructor #1 - The "real" Constructor
-                           PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol );  // Constructor #2 - Constructor for tesing Cash Rounding
+      //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHDecimal's Default Construct
+                           PHCurrDecimal::PHCurrDecimal() : _eSymbol(-1), _sSymbol(""), _dCashRoundingStep(-1) {} ;
 
-         //Public Methods
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           // Supply 'Units' and 'Symbol' - it will set the rest
+                           PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const PH_FX_PAIRS eSymbol );  
+
+                           // Parametric Constructor #2 [Elemental] (Constructor - used when Cash Rounding Step differs from Point[i.e. 10^^-Precision] )
+                           // Constructor - only used for *testing* Cash Rounding (the equivalent .setValue() is used by PHLots though)
+                           PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol );  
+
+      //Public Methods
          void              PHCurrDecimal::setValue( const double dInitialUnits, const PH_FX_PAIRS eSymbol );
-         double            PHCurrDecimal::toNormalizedDouble() const;    // Override PHDecimal::toNormalizedDouble()
+         void              PHCurrDecimal::setValue( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol );  
+         void              PHCurrDecimal::unsetValue();
+         double            PHCurrDecimal::toNormalizedDouble() const;    // Override PHDecimal::toNormalizedDouble() - I need to incorporate 'Cash Rounding'
+         string            PHCurrDecimal::toString() const               // Override PHDecimal::toString()...otherwise it uses PHDecimal's .toNormalizeDouble() !
+                           { string sFormatString = StringFormat( "%%.%if", _iPrecision ); return( StringFormat( sFormatString, PHCurrDecimal::toNormalizedDouble() ) ); };
+         string            PHCurrDecimal::objectToString() const
+                           { return( StringFormat( "PHCurrDecimal={ CashRoundingStep: %.8f, Symbol: %s, %s }", _dCashRoundingStep, _sSymbol, PHDecimal::objectToString() ) ); };
+   protected:
+      //Protected Methods
+         void              PHCurrDecimal::setPartialValue( const PH_FX_PAIRS eSymbol );
+         void              PHCurrDecimal::setValue( const double dInitialUnits );
 
 }; //end Class PHCurrDecimal
 
 
    //+------------------------------------------------------------------+
-   //| PHCurrDecimal - DUMMY Constructor #0 (Unitialized/Empty)
+   //| PHCurrDecimal  unsetValue() - Uninitialize/Empty Class Attributes
+   //|
+   //| 1a./1b. Set eSymbol and sSymbol to NULL
+   //|      2. Set Cash Rounding to NULL
+   //|      3. Unset Parent Class' values
    //|
    //+------------------------------------------------------------------+
-   // (Defined in Class Signature above)
-   // 1. Call PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
-   // 2. Set eSymbol and sSymbol to NULL
-   // 3. Set Cash Rounding to NULL
+   void PHCurrDecimal::unsetValue() 
+   {
+      // Set this Class' mandatory attributes
+      this._eSymbol = -1;
+      this._sSymbol = "";
+      this._dCashRoundingStep = -1;
+      
+      PHDecimal::unsetValue();
+
+   }; //end PHCurrDecimal::unsetValue()
 
 
    //+------------------------------------------------------------------+
-   //| PHCurrDecimal - Constructor #1 (Elemental)
+   //| PHCurrDecimal - Parametric Constructor #1 [Elemental]
    //|
    //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
    //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
@@ -683,12 +873,18 @@ class PHCurrDecimal : public PHDecimal {
    //|
    //| So the Constructor(s) of this Base class AND the Constructor(s) of any inherited class will do any necessary preparation work then call my 'setValue()' with the correct params
    //+------------------------------------------------------------------+
-   PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const PH_FX_PAIRS eSymbol ) 
+   void PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const PH_FX_PAIRS eSymbol ) 
    {
+      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
+
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "params (Constructor #1) { dInitialUnits: %g, eSymbol: %s } ", dInitialUnits, eSymbol ) );
 
+      //Clear out my PCCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      unsetValue();
+
       setValue( dInitialUnits, eSymbol );
+      
       myLogger.logINFO( StringFormat( "final { value: %s, sSymbol: %s, iPrecision: %i, dTickSize: %g, _dCashRoundingStep: %g }", this.toString(), this._sSymbol, this._iPrecision, this._dCashRoundingStep ) );
             
    };  //end Constructor
@@ -696,24 +892,51 @@ class PHCurrDecimal : public PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHCurrDecimal - Constructor #2 (Elemental)
+   //| PHCurrDecimal - Parametric Constructor #2 [Elemental]
    //|
    //| I needed a way to test the Cash Rounding functionality
+   //| This deliberately overrides the 'iPrecision' and 'dCashRoundingStep' values of the Market with the parameters supplied
+   //|
+   //| I had to pull out the logic into a Protected Method that PHLots can call.
+   //|
    //+------------------------------------------------------------------+
-   PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol )  // Constructor #2 - Constructor for tesing Cash Rounding
+   void PHCurrDecimal::PHCurrDecimal( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-
-      setValue( dInitialUnits, eSymbol );
-      this._iPrecision = iPrecision;
-      this._dCashRoundingStep = dCashRoundingStep;
-      
-      myLogger.logINFO( StringFormat( "final { value: %s, sSymbol: %s, iPrecision: %i, dTickSize: %g, _dCashRoundingStep: %g }", this.toString(), this._sSymbol, this._iPrecision, this._dCashRoundingStep ) );
+      setValue( dInitialUnits, iPrecision, dCashRoundingStep, eSymbol );
    }
 
 
    //+------------------------------------------------------------------+
-   //| PHCurrDecimal - SetValue()   [using Atomic Parameters]
+   //| PHCurrDecimal - SetValue() #1  [Elemental]
+   //|
+   //| Sets Value, Symbol, Precision and Cash Rounding (a.k.a. Tick Size)
+   //| used when Cash Rounding Step differs from Point[i.e. 10^^-Precision]
+   //| i.e. PHLots requires a Precision of derived from the TICK_SIZE (typically "0.01" ==> Precision: "2") and a Cash Rounding of TICK_STEP_SIZE (typically "0.01", but sometimes "0.25")
+   //+------------------------------------------------------------------+
+   void PHCurrDecimal::setValue( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol )
+   {
+      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
+
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      //Clear out my PCCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      unsetValue();
+
+      //This will set my Long to the wrong precision (i.e. the precision of the Market, not what's specified. No matter, I'll overwrite it in the next step
+      setValue( dInitialUnits, eSymbol );
+
+      //Explicitly override the Units and Precision with my given params above - use the Base Class' (PHDecimal's) Method
+      PHDecimal::setValue( dInitialUnits, iPrecision );
+
+      //All that's left to do is set the Cash Rounding
+      this._dCashRoundingStep = dCashRoundingStep;
+      
+      myLogger.logINFO( StringFormat( "final { value: %s, sSymbol: %s, iPrecision: %i, dTickSize: %g, _dCashRoundingStep: %g }", this.toString(), this._sSymbol, this._iPrecision, this._dCashRoundingStep ) );
+   }; //end PHCurrDecimal::setValue #1
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrDecimal - SetValue() #2  [Elemental]
    //|
    //| Sets Value, Symbol, Precision and Cash Rounding (a.k.a. Tick Size) - actually, given a Symbol, I can automatically derive the 'Precision' and 'Cash Rounding' from it
    //| So the Constructors are quite different from PHDecimal - All I need to be supplied is: 'Value' and 'Symbol' 
@@ -733,7 +956,7 @@ class PHCurrDecimal : public PHDecimal {
    //+------------------------------------------------------------------+
    void PHCurrDecimal::setValue( const double dInitialUnits, const PH_FX_PAIRS eSymbol )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "params { value: %g, sSymbol: %s }", dInitialUnits, EnumToString( eSymbol ) ) );
 
       //Set my mandatory Class Attributes
@@ -753,9 +976,84 @@ class PHCurrDecimal : public PHDecimal {
          myLogger.logINFO( StringFormat( "final { value: %s, sSymbol: %s, iPrecision: %i, dTickSize: %.8g, _dCashRoundingStep: %.8g }", this.toString(), this._sSymbol, iPrecision, this._dCashRoundingStep ) );
       } // end of PHDecimal prep
 
-   }; //end PHTicks:: Constructor
+   }; //end PHCurrDecimal::setValue #2
 
 
+   //+------------------------------------------------------------------+
+   //| PHCurrDecimal - SetPartialValue()   <Protected> [Elemental]
+   //|
+   //| Early during initialization there are occiasions where I know the Symbol, but don't have the actual Number (Units) yet.
+   //| But even when only given a Symbol, there's sooo much I can derive!...
+   //|   For a PHCurrDecimal:  The Market's 'Precision', both forms of the Symbol (String and Enum), the Market's TICK_SIZE (i.e. Cash Rounding)
+   //|   For a PHLot:  All of the above...and more: The Min, Max, Step Size and Standard Contract Size for that Lot's Market
+   //|
+   //| So what we're doing here is setting everything I can (for just PHCurrDecimal)...except the actual Units
+   //| So the Constructors are quite different from PHDecimal - All I need to be supplied is: 'Symbol' 
+   //|
+   //| Object Status
+   //| =============
+   //| But I'll only mark the Object's Status as PARTIALLY INITIALIZED. 
+   //| That'll prevent you from getting an invalid number from it
+   //|
+   //| (Protected-use only)
+   //| Used by:
+   //|   >> PHTicks::calcStopLossWidth_10dATRx3()
+   //|   >> PHLots::commonConstructor()
+   //+------------------------------------------------------------------+
+   void PHCurrDecimal::setPartialValue( const PH_FX_PAIRS eSymbol )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params { sSymbol: %s }", EnumToString( eSymbol ) ) );
+
+      //Set my mandatory Class Attributes
+      this._eSymbol = eSymbol;
+      this._sSymbol = EnumToString( eSymbol );
+
+      //Determine the TickSize for the market - will get set as the 'Cash Rounding' Attribute
+      this._dCashRoundingStep = SymbolInfoDouble( this._sSymbol, SYMBOL_TRADE_TICK_SIZE );  //e.g. 0.0001  (sometimes, 0.25 - even though the Point size is 0.01!)
+
+      // Prepare the PHDecimal object 
+      {
+         //Determine the Precision for the market (typially either 3DPs or 5DPs)
+         int iPrecision = (int) SymbolInfoInteger( this._sSymbol, SYMBOL_DIGITS );
+         
+         //Set a rogue 'Units'
+         PHDecimal::setValue( -1 , iPrecision );
+         
+         //Mark it as only PARTIALLY INITIALIZED it from returning any values
+         this._eStatus = OBJECT_PARTIALLY_INITIALIZED;
+
+         myLogger.logINFO( StringFormat( "final { value: %s, sSymbol: %s, iPrecision: %i, dTickSize: %.8g, _dCashRoundingStep: %.8g }", this.toString(), this._sSymbol, iPrecision, this._dCashRoundingStep ) );
+      } // end of PHDecimal prep
+
+   }; //end PHCurrDecimal::setValue #2
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrDecimal - SetValue()   <Protected> [Elemental]
+   //|
+   //| Designed to be used only after .setPartialValue() to set only the Units (leaving all the other Attrbutes intact)
+   //|
+   //| (Protected-use only)
+   //| Used by:
+   //|   [TBC]  >> PHTicks::calcStopLossWidth_10dATRx3()
+   //|   >> PHLots::commonConstructor()
+   //+------------------------------------------------------------------+
+   void PHCurrDecimal::setValue( const double dUnits )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params { value: %g, }", dUnits ) );
+      
+      if( this._eStatus == OBJECT_PARTIALLY_INITIALIZED ) {
+         this._lUnits = normalizeAndShiftLeft( dUnits );
+      } else {
+         myLogger.logERROR( "Not allowed to set the value on an UNINITIALIZED (or FULLY INITIALIZED) value. Use '.setValue( double Units, int Precision)' instead" );
+      }
+      
+      //Assume that only the setPartialValue() can set an object to be partially initialized - and hence all the other fields are set correctly
+      this._eStatus = OBJECT_FULLY_INITIALIZED;
+   }
 
 
    //+------------------------------------------------------------------+
@@ -823,28 +1121,64 @@ class PHCurrDecimal : public PHDecimal {
 //| So it kinda has that logic 'baked in' and >>>you don't have to worry about it<<<
 //|
 //+------------------------------------------------------------------+
-class PHPercent : public PHDecimal {
+#define _DEFAULT_PERCENTAGE_PRECISION 2
 
-      //Attributes
-//       //Inherited Attributes from PHDecimal
-//       PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
-//       long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
-//       int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
+class PHPercent : public PHDecimal 
+{
+/*    //<<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
 
-      //Public Methods
+*/
+
+      //<<<Public Methods>>>
       public:
-                  PHPercent::PHPercent( const double dFigure, const int iPrecision ) : PHDecimal() { validateAndSetValue( dFigure, iPrecision ); } ;   //Supply a decimal between 0.0 and 100.0
+         //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHDecimal's Default Construct
+                           PHPercent::PHPercent() {};
 
-//                  PHPercent::setPercent( const double dPercent );
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           // Supply 'Units' (between 0.0 and 100.0) and 'Precision' (defaults to 2).  It's basically a PHDecimal ...with validation rules.
+                           PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
 
+         void     PHPercent::setValue(    double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
          double   PHPercent::getFigure()  const { return this.toNormalizedDouble(); };            //Returns a value between 0    and 100
          double   PHPercent::getPercent() const { return PHDecimal::toNormalizedDouble()/100; };  //Returns a value between 0.00 and   1.00
          
-      //Protected Methods
+      //<<<Protected Methods>>>
      protected:
-         void     PHPercent::validateAndSetValue( double dFigure, const int iPrecision );
 
 }; //end Class PHPercent
+
+   //+------------------------------------------------------------------+
+   //| PHPercent - Parametric Constructor #1 [Elemental]
+   //|
+   //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
+   //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
+   //|   restricted environment provided by the inherited Class' "Initialization List")
+   //|
+   //| So the Constructor(s) of this Base class AND the Constructor(s) of any inherited class will do any necessary preparation work then call my 'setValue()' with the correct params
+   //+------------------------------------------------------------------+
+   void PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION ) 
+   {
+      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
+
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params (Constructor #1) { dFigure: %.8g, iPrecision: %i } ", dFigure, iPrecision ) );
+
+      //Clear out my PHCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      unsetValue();
+
+      setValue( dFigure, iPrecision );
+      
+      myLogger.logINFO( StringFormat( "final { value: %s, iPrecision: %i }", this.toString(), this._iPrecision ) );
+            
+   };  //end Constructor
+
+
 
    //+------------------------------------------------------------------+
    //| PHPercent - validateFigure
@@ -862,7 +1196,7 @@ class PHPercent : public PHDecimal {
    //|   c) allow the values set by the Base Constructor to stand as-is
    //|
    //+------------------------------------------------------------------+
-   void PHPercent::validateAndSetValue( double dFigure, const int iPrecision )
+   void PHPercent::setValue( double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION )
    {   
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
@@ -874,7 +1208,7 @@ class PHPercent : public PHDecimal {
          myLogger.logWARN( StringFormat( "Percentages can be set between 0 and 100. If you meant to set a percentage between 0%% and 1%% then fine. Otherwise, if you meant %g%%, set it as %g instead", (dFigure*100), (dFigure*100) ) );
       
       if ( ( dFigure < 0 ) || ( dFigure > 100 ) ) {
-         myLogger.logWARN( StringFormat( "params passed { value: %g } is out of bounds - Object is invalid.", dFigure ) );
+         myLogger.logERROR( StringFormat( "params passed { value: %g } is out of bounds - must be between 0 and 100. Object is invalid.", dFigure ) );
          this.unsetValue();
       } //end if
 
@@ -888,26 +1222,29 @@ class PHPercent : public PHDecimal {
 
 
 
-//   PHTicks adds no new Attributes, but it does add Tick-specific methods (such as the "CalcStopLossWidth_10dATRx3()" function)
 
 
 //=====================================================================================================================================================================================================
 
 class PHTicks : public PHCurrDecimal
+//   PHTicks adds no new Attributes, but it does add Tick-specific methods (such as the "CalcStopLossWidth_10dATRx3()" function)
 {
 
-      //Attributes
-//       //Inherited Attributes from PHDecimal
-//       PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
-//       long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
-//       int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
+/*    //<<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
 
-//       //Inherited Attributes from PHCurrDecimal
-//       PH_FX_PAIRS       _eSymbol;           // (Protected)
-//       string            _sSymbol;           // (Protected) I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
-//       double            _dCashRoundingStep; // (Protected) The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
+         //Inherited Attributes from PHCurrDecimal
+         PH_FX_PAIRS       _eSymbol;           // (Protected)
+         string            _sSymbol;           // (Protected) I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
+         double            _dCashRoundingStep; // (Protected) The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
 
+*/
    
+      //<<<Protected Attributes>>>
+      protected:
 //       PHDollar    *_DollarArray[];  //For manually-created PHDollars - Necessary to use Pointers - needed for loop and Delete()
          PHTicks     *_TicksArray[];    //For manually-created PHTicks - Necessary to use Pointers - needed for loop and Delete()
 
@@ -919,13 +1256,16 @@ class PHTicks : public PHCurrDecimal
 
       //<<<Public Methods>>>
       public:
-      
-                     //Constructors
-                        PHTicks::PHTicks() : PHCurrDecimal() {}; // Constructor #0 - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
-                        PHTicks::PHTicks( const double dTicks, const PH_FX_PAIRS eSymbol );   //Constructor #1 (Elemental)
+         //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHDecimal's Default Construct
+                           PHTicks::PHTicks() {}; 
 
-//                     PHTicks::PHTicks( const PH_FX_PAIRS eSymbol );                       //Constructor #2 - Previously known as the "dCalcStopLossWidth_10dATRx3()" function
-//                     PHTicks::PHTicks( const PHTicks& that );                             //Constructor #3 (Copy Constructor)
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           PHTicks::PHTicks( const double dTicks, const PH_FX_PAIRS eSymbol );   
+
+                           // Constructor #2 [Object] (Copy/Constructor)
+                           PHTicks::PHTicks( const PHTicks& that );
 
                      PHTicks::~PHTicks();
          void        PHTicks::calcStopLossWidth_10dATRx3( const PH_FX_PAIRS eSymbol ) ;
@@ -944,41 +1284,6 @@ class PHTicks : public PHCurrDecimal
 }; //end Class
 
 
-   //+------------------------------------------------------------------+
-   //| PHCurrDecimal - DUMMY Constructor #0 (Unitialized/Empty)
-   //|
-   //+------------------------------------------------------------------+
-   // (Defined in Class Signature above)
-   // 1. Call PHCurrDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
-   // 
-   // There are no new Attributes
-
-
-   //+------------------------------------------------------------------+
-   //| PHTicks - DUMMY Constructor #0 (Unitialized/Empty)
-   //|
-   //| Reason #2
-   //| =========
-   //| Inherited Classes *ARE FORCED* to call one of the Base Classes Constructors.
-   //| I really struggle trying to construct all the necessary the parameters for a parameterized Constructor in the "limited environment"* provided by the inherited Class' 'Initialization List'.
-   //| I'd much rather initialize the Base class with DUMMY values...and then set it properly in the "full environment" provided by an inherited Method's normal function.
-   //|
-   //| *"limited environment" defined:
-   //|   1) If I want to call a Base's Constructor, the only way to call it is via the 'Initialization List' within the Method's signature (within the Class defintion).  It cannot be called from within a normal MQL function
-   //|   2) But if I call a Base's Constructor via the Method's signature, I'm forced to implement the implement the body with {}, again within the Method's signature (within the Class defintion).
-   //| It seems kinda "all or nothing" - I either call a Super that gets me partially the way there, or I'm forced to abandon the Super, and repeat(copy/paste) all the effort/code in my Child Constructor.  Dumb.
-   //| It seems the best I can do, is:
-   //|   a) call a super-simple Base Constructor via the 'Initialization List' within the Method's signature (that sets as much as it can, given the limited knowledge)
-   //|   b) reference a standard function within the {} body within the Method's signature (within the Class defintion)
-   //|
-   //+------------------------------------------------------------------+
-/* Disabled - The Attributes get set in the definition (implementation) of the Constructor above
-   PHTicks::PHTicks() 
-   {
-      this._eSymbol    = NULL;
-      this._sSymbol    = "";
-   };  //end Constructor
-*/
 
    //+------------------------------------------------------------------+
    //| PHTicks - Constructor #1 (Elemental)
@@ -996,7 +1301,7 @@ class PHTicks : public PHCurrDecimal
    }; //end PHTicks:: Constructor
 
 
-/*
+
 
    //+------------------------------------------------------------------+
    //| PHTicks - Constructor #2 (Copy Object)
@@ -1004,21 +1309,20 @@ class PHTicks : public PHCurrDecimal
    //| Copies the Tick Value and Symbol over
    //| (Ignores initializing the Destructor's Object Arrays - the initialization that occurs in the Class structre is sufficient)
    //+------------------------------------------------------------------+
-   PHTicks::PHTicks( const PHTicks& that ) 
+   PHTicks::PHTicks( const PHTicks& oSourcePHTicks ) 
    {
       LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
-      double      dThatTicks  = that._dTicks;
-      PH_FX_PAIRS eThatSymbol = that._eSymbol;
+      double      dSourceTickUnits  = oSourcePHTicks.toNormalizedDouble();
+      PH_FX_PAIRS eSourceTickSymbol = oSourcePHTicks._eSymbol;
 
-      myLogger.logDEBUG( StringFormat( "Copying PHTick object  (Constructor #2) { dTicks: %s, sSymbol: %s }", sFmtDdp(dThatTicks), EnumToString( eThatSymbol ) ) );
+      myLogger.logDEBUG( StringFormat( "Copying PHTick object  (Constructor #2) { dSourceTickUnits: %s, sSymbol: %s }", oSourcePHTicks.toString(), EnumToString( eSourceTickSymbol ) ) );
 
       //Set my mandatory Class Attributes
-      this._dTicks = dThatTicks;
-      this._eSymbol = eThatSymbol;
+      setValue( dSourceTickUnits, eSourceTickSymbol );    
 
    }; //end PHTicks:: Constructor
-*/
+
 
 
    //+------------------------------------------------------------------+
@@ -1048,19 +1352,23 @@ class PHTicks : public PHCurrDecimal
    void PHTicks::calcStopLossWidth_10dATRx3( const PH_FX_PAIRS eSymbol ) 
    {
    
-      LLP(LOG_INFO)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP(LOG_WARN)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
-      myLogger.logDEBUG( StringFormat( "param(s) (Constructor #3) { eSymbol: %s }", eSymbol ) );
+      myLogger.logDEBUG( StringFormat( "param(s) { eSymbol: %s }", this._sSymbol ) );
 
+/*   
       // Set my mandatory Class Attributes
       //   In this case, all I've actually been given is the Symbol at this stage.  But I can work out the 'TickSize' and 'Precision' from that.
       //   For now, I'll set a dummy value for Ticks/Price - but by the end of the method, I'll have calculated the Tick/Price Move Width and set it at the end of the method
+      //   Why set anything at all?  Because all the other attributes can be set. All we're missing is the Units. [EDIT] I really, really need the 'CashRoundingStep' set early on!
       setValue( 1, eSymbol );    //Ticks = 1 (DUMMY VALUE - I will re-set once I have the correct value later)
 
       // Override Object Status with 'Partially Initialized'.  This will prevent it from >>>returning any bad values<<< (specifically via ".toNormalizedDouble()'. 
       // I'll set it to fully initialized when I've set the correct Ticks value
       this._eStatus = OBJECT_PARTIALLY_INITIALIZED;
-     
+*/
+      //Replacement for above
+      setPartialValue( eSymbol );     
    
       // Calculate the Average Daily True Range on Daily Bars, for a given symbol/period  (x periods back, starting from yesterday)
       // WARNING: I'm using the *Terminal's* Daily periods (not mine)..but who cares for an ADTR, right?!
@@ -1107,23 +1415,17 @@ class PHTicks : public PHCurrDecimal
    
       myLogger.logDEBUG( StringFormat( "Constants: 10dATRx3 Averaging Period: %i of %s;  10dATRx3 Multiplier: %f \r\n", _SL10dATRx3_iATRPeriod, EnumToString(ePeriod), _SL10dATRx3_dATRMultiplier ) );
       
-      int iPrecision = this._iPrecision;
-   
       // Step #1 ("Price Width") - a simple ADTR
       // Begin by calculating the ADTR for a (10 x Day) period for my Market/Symbol.  Declare a new Tick Object of the resultant "price width"
-      PHTicks Ticks_ADTRx10dayCCPriceMoveWidth( iATR( this._sSymbol, ePeriod, _SL10dATRx3_iATRPeriod, _YESTERDAY), _eSymbol );    // e.g. something like  "0.009339"
+      // Using .setValue() to set the Units will also mark the object's status as FULLY_INITIALIZED
+      this.setValue( iATR( this._sSymbol, ePeriod, _SL10dATRx3_iATRPeriod, _YESTERDAY), _eSymbol );    // e.g. something like  "0.009339"  If it had a variable it would be: Ticks_ADTRx10dayCCPriceMoveWidth
       
-      myLogger.logDEBUG( StringFormat( "ATR (Period: %i): %s",    _SL10dATRx3_iATRPeriod, Ticks_ADTRx10dayCCPriceMoveWidth.toString() ) );
+      myLogger.logDEBUG( StringFormat( "Step #1: ATR (Period: %i): %s",    _SL10dATRx3_iATRPeriod, toString() ) );
       HideTestIndicators(false);
    
       // Step #2 ("Price Width") - The ADTR multiplied by a arbitary factor
       // Given the ADTR, now calculate the Stop Loss Width (as a multiple of the ADTR). UoM is a width in terms of the Country Currency's price
-      Ticks_ADTRx10dayCCPriceMoveWidth.multiply( _SL10dATRx3_dATRMultiplier );     // e.g. 0.009339 x 2.9 = 0.02708
-
-      // Now I've calculated the Ticks value fully, I can set the value in my Class' Attribute
-      // This will also set the Object Status with 'Fully Initialized'   
-      setValue( Ticks_ADTRx10dayCCPriceMoveWidth.toNormalizedDouble(), eSymbol );
-
+      this.multiply( _SL10dATRx3_dATRMultiplier );     // e.g. 0.009339 x 2.9 = 0.02708
 
       myLogger.logINFO( StringFormat( "RESULT-> StopLoss Width (in Counter Currency Price): %s \r\n", this.toString() ) );
      
@@ -1162,13 +1464,12 @@ class PHTicks : public PHCurrDecimal
 
 /* temp removed.  Resetablish - as needed...
 
-   //Note these were originally Private Class Attributes:  - I think that was probably too static and they should probably be pushed into a method so that the rates can be 'Refreshed' upon use.
-         double _dTickValueInMarket; //e.g. $1.00
-         double _tickValueDollarsPerUnit;   //e.g. $1.00
-         double _tickValueDollarsPerStdContract;   //e.g. $1.00
-         double _dContractSize;      //e.g. 100,000 units
+   //Note these were originally Private Class Attributes:  - I think that they *may be too static and they may benefit from being pushed into a method so that the rates can be 'Refreshed' upon use - TBC!!!
+      double _dTickValueInMarket; //e.g. $1.00
+      double _tickValueDollarsPerUnit;   //e.g. $1.00
+      double _tickValueDollarsPerStdContract;   //e.g. $1.00
+      double _dContractSize;      //e.g. 100,000 units
 
-   //Note these were originally calculated in the Constructor:  - I think that was probably too static and they should probably be pushed into a method so that the rates can be 'Refreshed' upon use.
       _dTickValueInMarket  = SymbolInfoDouble(sSymbol, SYMBOL_TRADE_TICK_VALUE);
       _dContractSize       = SymbolInfoDouble(sSymbol, SYMBOL_TRADE_CONTRACT_SIZE);
 
@@ -1242,6 +1543,9 @@ class PHTicks : public PHCurrDecimal
 
 //=====================================================================================================================================================================================================
 
+class PHLots : public PHCurrDecimal 
+{
+
 // PHLots adds new Attributes:  
 //    >> Minimum Lot Size (typically 0.01)
 //    >> Maximum Lot Size (typically 50.0)
@@ -1255,36 +1559,39 @@ class PHTicks : public PHCurrDecimal
 // I use Cash Rounding to ensure that only multiple of Lot size (minimum of 0.01, in multiles of 0.01 and a maximum of 50) are returned.
 // Lots may be temporarily breach those rules within this class (while being calculated, for example) but ultimately must comply to the above rules
 
-class PHLots : PHCurrDecimal {
+/*    //<<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
 
-      //Attributes
-//       //Inherited Attributes from PHDecimal
-//       PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
-//       long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
-//       int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
+         //Inherited Attributes from PHCurrDecimal
+         PH_FX_PAIRS       _eSymbol;           // (Protected)
+         string            _sSymbol;           // (Protected) I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
+         double            _dCashRoundingStep; // (Protected) The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
 
-//       //Inherited Attributes from PHCurrDecimal
-//       PH_FX_PAIRS       _eSymbol;           // (Protected)
-//       string            _sSymbol;           // (Protected) I use both Enum and String representations of Symbol() frequently, so I reckon it's worth storing them both
-//       double            _dCashRoundingStep; // (Protected) The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
+*/
 
       //<<<Private Attributes>>>
       private:
-         //Additional Attributes within PHTicks
-//         double      _dVolumeMin, _dVolumeStep, _dVolumeMax, _dStandardContractSize;
-         PHDecimal        _volumeMin_Decimal, _volumeStep_Decimal, _volumeMax_Decimal, _standardContractSize_Decimal;
-
-   
+//         double    _dVolumeMin, _dVolumeStep, _dVolumeMax, _dStandardContractSize;
+           PHDecimal _volumeMin_Decimal, _volumeStep_Decimal, _volumeMax_Decimal, _stdCntSize_Decimal;  //Obviously all initially, un-initialized
 
 
       //<<<Public Methods>>>
       public:
-                  //Constructors
-                  PHLots::PHLots() : PHCurrDecimal() { };  //Construct an UNINITIALIZED object
-                  PHLots::PHLots( const double dLots, const PH_FX_PAIRS eSymbol );
-                  PHLots::PHLots( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHPercent& oPercentageOfEquityToRisk );
+         //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHCurrDecimal's Default Constructor (which in turn calls PHDecimal's Default Constructor)
+                           PHLots::PHLots() {};
 
-         void     PHLots::commonConstructor( const PH_FX_PAIRS eSymbol );
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           PHLots::PHLots( const double dLots, const PH_FX_PAIRS eSymbol );
+
+         void              PHLots::setValue( const double dLots, const PH_FX_PAIRS eSymbol );
+         void              PHLots::sizePercentRiskModel( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHPercent& oPercentageOfEquityToRisk );
+         string            PHLots::objectToString() const
+                           { return( StringFormat( "PHLots={ LOT_MIN: %s, LOT_MAX: %s, LOT_STEP: %s, LOT_SIZE: %s, %s }", _volumeMin_Decimal.toString(), _volumeMax_Decimal.toString(), _volumeStep_Decimal.toString(), _stdCntSize_Decimal.toString(), PHCurrDecimal::objectToString() ) ); };
 
 /* old way...
          double   PHLots::getVolumeMin()            const { return _dVolumeMin; };
@@ -1293,14 +1600,15 @@ class PHLots : PHCurrDecimal {
          double   PHLots::getStandardContractSize() const { return _StandardContractSize; };
 */
 
-         const string PHLots::toString()
-                     const { return( sFmt2dp( toNormalizedDouble() ) ); };
-         double   PHLots::toNormalizedDouble() const;   //Override/add to PHCurrDecimal's .toNormalizedDouble()  [Max Lot Size < 50!]
-
 
       //<<<Private Methods>>>
       private:
-         void     PHLots::commonConstructor( const string sSymbol );
+         void              PHLots::commonConstructor( const PH_FX_PAIRS eSymbol );
+
+
+      //<<<Protected Methods>>>
+      protected:
+         void              PHLots::unsetValue();
 
 }; //end Class
 
@@ -1313,41 +1621,44 @@ class PHLots : PHCurrDecimal {
    {
       LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
-      //Set my mandatory Class Attributes
-      {
-/* old way...
-         //--- double value output in a compact format
-         this._dVolumeMin = SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MIN );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MIN = %g (minimal volume for a deal)", _dVolumeMin ) );
+      //Set everything - except the Units
+      this.setPartialValue( eSymbol );
       
-         //--- double value output in a compact format
-         this._dVolumeStep = SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_STEP );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_STEP = %g (minimal volume change step)", _dVolumeStep ) );
-   
-         //--- double value output in a compact format
-         this._dVolumeMax = SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MAX );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MAX = %g (maximal volume for a deal)", _dVolumeMax ) );
-         
-         this._dStandardContractSize = SymbolInfoDouble( _sSymbol, SYMBOL_TRADE_CONTRACT_SIZE );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_TRADE_CONTRACT_SIZE = %f", _dStandardContractSize ) );
-*/
-
-         //Grab the Precision for the current object - and set these objects to the same Precision. It will make the mathematical operation far, far easier to deal with
-         int iPrecision = this._iPrecision;
-         
-         _volumeMin_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MIN ), iPrecision );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MIN = %s (minimal volume for a deal)", _volumeMin_Decimal.toString() ) );
-
-         _volumeMax_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MAX ), iPrecision );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MAX = %s (maximum volume for a deal)", _volumeMax_Decimal.toString() ) );
-
-         _volumeMin_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_STEP ), iPrecision );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_STEP = %s (deal volume increase step size)", _volumeStep_Decimal.toString() ) );
-
-         _volumeMin_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_TRADE_CONTRACT_SIZE ), iPrecision );
-         myLogger.logDEBUG( StringFormat( "SYMBOL_TRADE_CONTRACT_SIZE = %s (numner of Lots/units to a standard contract)", _standardContractSize_Decimal.toString() ) );
-
+      //Unfortunately the 'Precision' is wrong - it's been set to the Market Digits (typically 3 or 5), when it's more likely 2 (Min Lot Size: 0.01)
+      //Unfortunately the 'Cash Rounding ' is also wrong - again, it's been set to the Market Point (typically 0.001 or 0.00001), when it's more likely 0.01 (Min Lot STEP Size: 0.01)
+      // Given, the Minimum Lots Size (typically 0.01), calculate the number of decimal points:
+      int iPrecision = 0;
+      
+      {
+         double dMinLots = SymbolInfoDouble( EnumToString(eSymbol), SYMBOL_VOLUME_MIN );
+         dMinLots = MathAbs( dMinLots );
+         dMinLots = dMinLots - int( dMinLots );
+         while ( MathAbs(dMinLots) >= 0.0000001 )  //Floating Point workaround. But it's safe to assume in this case (Lots) there's only a limited number of digits after the decimal point (i.e like 0.01, and NOT like .2156 (= .21559999999999) or 'two-thirds' for example)
+         {
+          dMinLots = dMinLots * 10;
+          iPrecision++;
+          dMinLots = dMinLots - int(dMinLots);  // This ensures that the final digit gets eventually removed (leaving "close to" zero)
+         };
       }
+
+      _volumeMin_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MIN ), iPrecision );
+      myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MIN = %s (minimal volume for a deal)", _volumeMin_Decimal.toString() ) );
+
+      _volumeMax_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_MAX ), iPrecision );
+      myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_MAX = %s (maximum volume for a deal)", _volumeMax_Decimal.toString() ) );
+
+      double dCashRoundingStep = SymbolInfoDouble( _sSymbol, SYMBOL_VOLUME_STEP );
+      _volumeStep_Decimal.setValue( dCashRoundingStep, iPrecision );
+      myLogger.logDEBUG( StringFormat( "SYMBOL_VOLUME_STEP = %s (deal volume increase step size)", _volumeStep_Decimal.toString() ) );
+
+      _stdCntSize_Decimal.setValue( SymbolInfoDouble( _sSymbol, SYMBOL_TRADE_CONTRACT_SIZE ), iPrecision );
+      myLogger.logDEBUG( StringFormat( "SYMBOL_TRADE_CONTRACT_SIZE = %s (numner of Lots/units to a standard contract)", _stdCntSize_Decimal.toString() ) );
+      
+      //Finally, correct the 'Precision' and 'Cash Rounding'
+      this._iPrecision = iPrecision;
+      this._dCashRoundingStep = dCashRoundingStep;
+
+      this._lUnits = -1;   //set it to a rogue value; no other reason than I like to see that in the debugger!0
       
    };
 
@@ -1359,77 +1670,75 @@ class PHLots : PHCurrDecimal {
    //+------------------------------------------------------------------+
    PHLots::PHLots( const double dLots, const PH_FX_PAIRS eSymbol )
    {
-      LLP( LOG_INFO ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "passed params { dValue: %f, sSymbol: %s }", dLots, eSymbol ) );
-      myLogger.logDEBUG( StringFormat( "Max Lt Size: %s", _volumeMax_Decimal.toString() ) );
-
-      if( this.lessThanOrEqualTo( _volumeMax_Decimal ) ) {
-      
-         PHLots::commonConstructor( eSymbol );
-   
-         //Call to Super()
-         PHCurrDecimal::setValue( dLots, eSymbol );
-   
-      } else {
-         myLogger.logERROR( StringFormat( "Attempt to set Lots (%g) greater than MAX_LOT_SIZE (%s)", _volumeMax_Decimal.toString() ) );
-         unsetValue();
-      }
-
+      setValue( dLots, eSymbol );
 
    }; //end PHLots:: Constructor
 
 
-
-
-
    //+------------------------------------------------------------------+
-   //| PHLots - toNormalizedDouble()
-   //|
-   //| This should be the *only* way to retrieve the value 
-   //|  (Other retreival methods must be a wrapper around this one)
-   //|
-   //|   1. Call the PHDecimal::toNormalizedDouble() to:
-   //|      a. Cast the units as a Double
-   //|         I considered performing Cash Rounding on a Long - which appears that it would probably work
-   //|         (the result of the divide [ Units / VolumeStep ] would get truncated into an Int or Long...but that forces me to always round DOWN/truncate. If I use Doubles, I get to choose how to round)
-   //|         But I now cast early because:
-   //|            a) I have to eventually return a Double anyway
-   //|            b) The maths of Steps #2 and #3 become easier using Doubles
-   //|
-   //|      b. Shift the value to the right (by 'Precision' number of digits)
-   //|
-   //|   2. Check the number of units are below
-   //|      When the lowest denomination (Tick Value) is the same as the Point Value this initially appears to be an unnecessary step e.g. 1234 ÷ 1 (the equiv of 12.34 ÷ 0.01) 
-   //|      But this step becomes necessary when they are different (as in metals) where I must return multiples in a different Step Size e.g. 1234 ÷ 25 (the equiv of 12.34 ÷ 0.25)
+   //| PHLots - setValue() (Elemental)
    //|
    //+------------------------------------------------------------------+
-   double   PHLots::toNormalizedDouble() const
+   void PHLots::setValue( const double dLots, const PH_FX_PAIRS eSymbol )
    {
-      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "passed params { dValue: %f, sSymbol: %s }", dLots, EnumToString(eSymbol) ) );
 
-      double dUnits;
-      if( ( this._eStatus == OBJECT_FULLY_INITIALIZED ) && ( this.lessThanOrEqualTo( _volumeMax_Decimal ) ) ) {
+      PHLots::commonConstructor( eSymbol );
+
+      //Optimistically set the Value (Call to PHCurrDecimal::setValue() ) - I'll test and .unset() later if necessary
       
-         dUnits = PHCurrDecimal::toNormalizedDouble();
-         myLogger.logDEBUG( StringFormat( "normalized units (But not yet tested for MAX_SIZE) { dUnits: %g } ", dUnits ) );
-         
-         myLogger.logINFO( StringFormat( "final (Cash Rounded) { dUnits: %g, _iPrecision: %i } ", dUnits, _iPrecision ) );
-      } else {
-         myLogger.logERROR( "No value to return on an uninitialized Object!" );
-         dUnits = NULL;
-      }
+      PHCurrDecimal::setValue( dLots );
+      
+      myLogger.logDEBUG( StringFormat( "Lots Units: %s", this.toString() ) );
+      myLogger.logDEBUG( StringFormat( "Max Lot Size: %s", _volumeMax_Decimal.toString() ) );
+      myLogger.logDEBUG( StringFormat( "Min Lot Size: %s", _volumeMin_Decimal.toString() ) );
 
-      return( dUnits );
-   };  //end toNormalizedDouble()
+      if ( this.operatorAndOperand( gt, _volumeMax_Decimal ) ) {
+         // i.e. failed the "dLots > LOTS_MAX_SIZE" test
+         myLogger.logERROR( StringFormat( "Attempt to set Lots (%g) to greater than MAX_LOT_SIZE (%s)", _volumeMax_Decimal.toString() ) );
+
+         unsetValue();  //Calls PHCurrDecimals' unsetValue() <<CONFIRM   (anyhow, PHLots doesn't need it's own one)
+      } 
+      
+      if ( this.operatorAndOperand( lt, _volumeMin_Decimal ) ) {
+         // i.e. failed the "dLots < LOTS_MIN_SIZE" test
+         myLogger.logERROR( StringFormat( "Attempt to set Lots (%g) to less than MIN_LOT_SIZE (%s)", _volumeMin_Decimal.toString() ) );
+
+         unsetValue();  //Calls PHCurrDecimals' unsetValue() <<CONFIRM   (anyhow, PHLots doesn't need it's own one)
+      } 
+   }; //end PHLots::setValue()
+
+
+   //+------------------------------------------------------------------+
+   //| PHLots unsetValue() - Uninitialize/Empty Class Attributes
+   //|
+   //| 1a./1b. Set eSymbol and sSymbol to NULL
+   //|      2. Set Cash Rounding to NULL
+   //|      3. Unset Parent Class' (PHCurrDecimal) values (who will unset the grandfather Class' - PCDecimal)
+   //|
+   //+------------------------------------------------------------------+
+   void PHLots::unsetValue() 
+   {
+      // Unset this Class' mandatory attributes
+      this._volumeMin_Decimal.unsetValue();
+      this._volumeStep_Decimal.unsetValue();
+      this._volumeMax_Decimal.unsetValue();
+      this._stdCntSize_Decimal.unsetValue();
+      
+      PHCurrDecimal::unsetValue();
+   
+   }; //end PHLots::unsetValue()
+
+
+
+
 
 
 /* temp disabled...
 
-
-
    //+------------------------------------------------------------------+
-   //| PHLots - Constructor #2 (Derive num Lots given a StopLossWidth)
-   //| (Previously known as the "sizePercentRiskModel()" function)
+   //| PHLots - sizePercentRiskModel() (Derive num Lots given a StopLossWidth)
    //|
    //|  This starts by calculating the Risk Value Of 1.0x Lot. Then, after I have the precise number of Lots I'm going to trade, I'll call it again to get the Risk Value of 0.x lots
    //|
@@ -1441,15 +1750,15 @@ class PHLots : PHCurrDecimal {
    //|   dPriceMove2ValueCalculator()
    //|
    //+------------------------------------------------------------------+
-   PHLots::PHLots( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHPercent& oPercentageOfEquityToRisk )
+   void  PHLots::sizePercentRiskModel( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHPercent& oPercentageOfEquityToRisk )
    {
       LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
    
       string sSymbol = EnumToString( eSymbol );
       myLogger.logDEBUG( StringFormat( "passed params { sSymbol: %s, StopLoss Width: %s, oPercentageOfEquityToRisk: %f }", sSymbol, oTicks_StopLossWidth.toString(), oPercentageOfEquityToRisk.getFigure() ) );
 
-      //Call to Super()
-      PHLots::PHLots0( sSymbol );
+//Call to Super() ???
+//PHLots::PHLots0( sSymbol );
 
 
       // Step #1. Given x% of Account Equity  (typically 1%) [oPercentageOfEquityToRisk]
@@ -1485,109 +1794,110 @@ class PHLots : PHCurrDecimal {
    
    };
    
-   
-
-*/
+...*/
 
 
 
-//Dollars must be defined after Ticks and Lots
-class PHDollar {
-      //<<<Private Attributes>>>
-      private:
-         double _amt;
-
-      //<<<Public Methods>>>
-      public:
-                  //Constructors
-                  PHDollar::PHDollar( const double amt )
-                     { this._amt = amt; };
-                  PHDollar::PHDollar( const PHDollar& dlr )    //Copy Constructor
-                     { this._amt = dlr._amt; };
-                  PHDollar::PHDollar( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHLots& oLots );  //Complex Constructor (previously known as the 'Ticks2ValueCalculator()' function)
-
-         string   PHDollar::toString()
-                     //{ return(StringFormat( "$ %.2f", _amt ) ); };
-                     const { return( sFmtMny( toNormalizedDouble() ) ); };
-         double   PHDollar::toNormalizedDouble()
-                     const { return( NormalizeDouble( _amt, 2 ) ); };    //This will round to the necessary # digits, but may not *display* them to the desired format!
-         void     PHDollar::freeMarginAfterOrder( const PH_FX_PAIRS eSymbol, const PH_ORDER_TYPES& eOrderType, const PHLots& numLots );
-}; //end Class
-
-   //+------------------------------------------------------------------+
-   //| PHDollar   Constructor #3 (previously known as the 'Ticks2ValueCalculator()' function)
-   //|
-   //| Formula: (Price Move / (Value of a tick in Deposit Currency ) * Value of a tick in Quote Currency ) * Num of Lots
-   //| Note:
-   //|   - formula uses fractions of a Lot, NOT units!
-   //|   - formula uses ticks, not Points.  For an explanation, see http://forum.mql4.com/33975
-   //|   - the result may not necessarily equal the sale value, unless you've already factored the spread into the Price Move
-   //|
-   //| Takes: the Price Move difference (between two Price Levels) in terms of the counter currency, and a Lot size
-   //| Returns: Calculates the value of a position
-   //|
-   //| Why is the Bid/Ask not involved here??  
-   //|   a) Because the spread is insignificant?  (not sure, but don't think so)
-   //|   b) Because my Stop Loss value will be calculated *after* the sale/slippage has been estabished  (MORE LIKELY ANSWER)
-   //| 
-   //| Gets called by (called *twice* before opening a trade):
-   //|   1. sizePercentRiskModel() - initially to figure out the cost of opening a full (1.0) Lot  (which is typically too much)
-   //|   2. openTradeAtMarket()    - 2nd time: after I've figured out how much I can afford to risk, to figure out the cost to take the actual position
-   //+------------------------------------------------------------------+
-   
-   /*
-   Ray reckons: PositionValueChange = PriceChangeInPips * MarketInfo( OrderSymbol(), MODE_TICKVALUE) * OrderLots();
-   auto_free_cloudbreaker reckons: ( MarketInfo( Symbol(), MODE_TICKVALUE) * Point ) / MarketInfo( Symbol(), MODE_TICKSIZE )
-   */
-   PHDollar::PHDollar( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHLots& oLots )
-   {
-      LLP(LOG_DEBUG)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      string sSymbol = EnumToString( eSymbol);
-   
-      PHDollar oValueOf1Tick_USD( SymbolInfoDouble( sSymbol, SYMBOL_TRADE_TICK_VALUE ) );
-      myLogger.logDEBUG( StringFormat("Num Lots: %s; Stop Loss (in Ticks): %s;  ValueOf1Tick_USD: %s",   oLots.toString(), oTicks_StopLossWidth.toString(), oValueOf1Tick_USD.toString() ) );
-
-      this._amt = ( oTicks_StopLossWidth.toNormalizedDouble() * oValueOf1Tick_USD.toNormalizedDouble() * oLots.toNormalizedDouble() /* [TODO]  * oLots.getStandardContractSize() */   );
-      myLogger.logINFO(StringFormat("ValueOfPosition (in Deposit Currency/USD): %s",   this.toString() ) );
-   
-         //OLD/Working[but poor UoM choice]: Money valueInUSD = (dPriceMove / MarketInfo( sSymbol, MODE_TICKSIZE ) ) * MarketInfo( sSymbol, MODE_TICKVALUE ) * dBallparkLots;
-         //   double valueInUSD = dPriceMove * (MarketInfo(Symbol(),MODE_TICKVALUE)*Point)/MarketInfo(Symbol(),MODE_TICKSIZE) * (dLots * MarketInfo( Symbol(), MODE_LOTSIZE ) );  incorrect!!!
-   
-      //return(dValueOfPosition_USD);
-   };
-   
 
 
-   //+------------------------------------------------------------------+
-   //| PHDollar   freeMarginAfterOrder
-   //|
-   //+------------------------------------------------------------------+
-   void     PHDollar::freeMarginAfterOrder( const PH_FX_PAIRS eSymbol, const PH_ORDER_TYPES& eOrderType, const PHLots& numLots )
-   {
-      LLP(LOG_DEBUG)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
-   
-      string sSymbol = EnumToString( eSymbol);
-      
-      PHDollar oFreeMarginPriorToTrade( AccountFreeMargin() );
-      
-      this._amt = AccountFreeMarginCheck( sSymbol, eOrderType, numLots.toNormalizedDouble() );
-      int iError = GetLastError();
-      if( ( this._amt <= 0) || (iError == 134) )
-         myLogger.logERROR( StringFormat( "Free margin is insufficient! (symbol: %s, num lots: %s)", sSymbol, numLots.toString() ) );
 
-      PHDollar oEstPosValue( ( oFreeMarginPriorToTrade.toNormalizedDouble() - this._amt ) * AccountLeverage() );
-      PHPercent oAvailPercentMarginAfterTrade( this._amt / oFreeMarginPriorToTrade.toNormalizedDouble(), 2 );
-      myLogger.logINFO( StringFormat( "Estimated Position Value: %s (figures not accurate until after order and Slippage taken into account)", oEstPosValue.toString() ) );
-
-      myLogger.logINFO(StringFormat("FYI Margin Required to open one Lot: $ %.2f", MarketInfo(sSymbol, MODE_MARGINREQUIRED)));
-      myLogger.logINFO(StringFormat("Testing a %s of %s lots at the appropriate Price determined by the \'AccountFreeMarginCheck()\' function", EnumToString(eOrderType), numLots.toString() ));
-      myLogger.logINFO(StringFormat("\tThe \'MarketInfo(MODE_MARGINREQUIRED)\' function states that you will require $ %.2f of Margin to buy one Lot", MarketInfo(sSymbol, MODE_MARGINREQUIRED) ) );
-      myLogger.logINFO(StringFormat("\tThe \'AccountFreeMarginCheck\' (%s %s lots of %s) function returns $ %s meaning it must use up $ %.2f of margin [\'Available Margin prior to trade\' minus the \'Estimated free margin after trade\' (from function)]", EnumToString(eOrderType), numLots.toString(), sSymbol, this.toString(), ( oFreeMarginPriorToTrade.toNormalizedDouble() - this.toNormalizedDouble() ) ) );
-      myLogger.logINFO(StringFormat("\t\tor put as a percentage, you would still have: %s %% of Available Margin left after the trade", sFmt2dp(oAvailPercentMarginAfterTrade.getFigure() ) ));
-      myLogger.logINFO(StringFormat("\t\tThe Account Stop Out Level: %s", sFmtDdp(AccountStopoutLevel())));
-   
-   };
-   
+////Dollars must be defined after Ticks and Lots
+//class PHDollar {
+//      //<<<Private Attributes>>>
+//      private:
+//         double _amt;
+//
+//      //<<<Public Methods>>>
+//      public:
+//                  //Constructors
+//                  PHDollar::PHDollar( const double amt )
+//                     { this._amt = amt; };
+//                  PHDollar::PHDollar( const PHDollar& dlr )    //Copy Constructor
+//                     { this._amt = dlr._amt; };
+//                  PHDollar::PHDollar( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHLots& oLots );  //Complex Constructor (previously known as the 'Ticks2ValueCalculator()' function)
+//
+//         string   PHDollar::toString()
+//                     //{ return(StringFormat( "$ %.2f", _amt ) ); };
+//                     const { return( sFmtMny( toNormalizedDouble() ) ); };
+//         double   PHDollar::toNormalizedDouble()
+//                     const { return( NormalizeDouble( _amt, 2 ) ); };    //This will round to the necessary # digits, but may not *display* them to the desired format!
+//         void     PHDollar::freeMarginAfterOrder( const PH_FX_PAIRS eSymbol, const PH_ORDER_TYPES& eOrderType, const PHLots& numLots );
+//}; //end Class
+//
+//   //+------------------------------------------------------------------+
+//   //| PHDollar   Constructor #3 (previously known as the 'Ticks2ValueCalculator()' function)
+//   //|
+//   //| Formula: (Price Move / (Value of a tick in Deposit Currency ) * Value of a tick in Quote Currency ) * Num of Lots
+//   //| Note:
+//   //|   - formula uses fractions of a Lot, NOT units!
+//   //|   - formula uses ticks, not Points.  For an explanation, see http://forum.mql4.com/33975
+//   //|   - the result may not necessarily equal the sale value, unless you've already factored the spread into the Price Move
+//   //|
+//   //| Takes: the Price Move difference (between two Price Levels) in terms of the counter currency, and a Lot size
+//   //| Returns: Calculates the value of a position
+//   //|
+//   //| Why is the Bid/Ask not involved here??  
+//   //|   a) Because the spread is insignificant?  (not sure, but don't think so)
+//   //|   b) Because my Stop Loss value will be calculated *after* the sale/slippage has been estabished  (MORE LIKELY ANSWER)
+//   //| 
+//   //| Gets called by (called *twice* before opening a trade):
+//   //|   1. sizePercentRiskModel() - initially to figure out the cost of opening a full (1.0) Lot  (which is typically too much)
+//   //|   2. openTradeAtMarket()    - 2nd time: after I've figured out how much I can afford to risk, to figure out the cost to take the actual position
+//   //+------------------------------------------------------------------+
+//   
+//   
+//   //Ray reckons: PositionValueChange = PriceChangeInPips * MarketInfo( OrderSymbol(), MODE_TICKVALUE) * OrderLots();
+//   //auto_free_cloudbreaker reckons: ( MarketInfo( Symbol(), MODE_TICKVALUE) * Point ) / MarketInfo( Symbol(), MODE_TICKSIZE )
+//   
+//   PHDollar::PHDollar( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHLots& oLots )
+//   {
+//      LLP(LOG_DEBUG)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
+//      string sSymbol = EnumToString( eSymbol);
+//   
+//      PHDollar oValueOf1Tick_USD( SymbolInfoDouble( sSymbol, SYMBOL_TRADE_TICK_VALUE ) );
+//      myLogger.logDEBUG( StringFormat("Num Lots: %s; Stop Loss (in Ticks): %s;  ValueOf1Tick_USD: %s",   oLots.toString(), oTicks_StopLossWidth.toString(), oValueOf1Tick_USD.toString() ) );
+//
+//      this._amt = ( oTicks_StopLossWidth.toNormalizedDouble() * oValueOf1Tick_USD.toNormalizedDouble() * oLots.toNormalizedDouble() /* [TODO]  * oLots.getStandardContractSize() */   );
+//      myLogger.logINFO(StringFormat("ValueOfPosition (in Deposit Currency/USD): %s",   this.toString() ) );
+//   
+//         //OLD/Working[but poor UoM choice]: Money valueInUSD = (dPriceMove / MarketInfo( sSymbol, MODE_TICKSIZE ) ) * MarketInfo( sSymbol, MODE_TICKVALUE ) * dBallparkLots;
+//         //   double valueInUSD = dPriceMove * (MarketInfo(Symbol(),MODE_TICKVALUE)*Point)/MarketInfo(Symbol(),MODE_TICKSIZE) * (dLots * MarketInfo( Symbol(), MODE_LOTSIZE ) );  incorrect!!!
+//   
+//      //return(dValueOfPosition_USD);
+//   };
+//   
+//
+//
+//   //+------------------------------------------------------------------+
+//   //| PHDollar   freeMarginAfterOrder
+//   //|
+//   //+------------------------------------------------------------------+
+//   void     PHDollar::freeMarginAfterOrder( const PH_FX_PAIRS eSymbol, const PH_ORDER_TYPES& eOrderType, const PHLots& numLots )
+//   {
+//      LLP(LOG_DEBUG)   //Set the 'Log File Prefix' and 'Log Threshold' for this function
+//   
+//      string sSymbol = EnumToString( eSymbol);
+//      
+//      PHDollar oFreeMarginPriorToTrade( AccountFreeMargin() );
+//      
+//      this._amt = AccountFreeMarginCheck( sSymbol, eOrderType, numLots.toNormalizedDouble() );
+//      int iError = GetLastError();
+//      if( ( this._amt <= 0) || (iError == 134) )
+//         myLogger.logERROR( StringFormat( "Free margin is insufficient! (symbol: %s, num lots: %s)", sSymbol, numLots.toString() ) );
+//
+//      PHDollar oEstPosValue( ( oFreeMarginPriorToTrade.toNormalizedDouble() - this._amt ) * AccountLeverage() );
+//      PHPercent oAvailPercentMarginAfterTrade( this._amt / oFreeMarginPriorToTrade.toNormalizedDouble(), 2 );
+//      myLogger.logINFO( StringFormat( "Estimated Position Value: %s (figures not accurate until after order and Slippage taken into account)", oEstPosValue.toString() ) );
+//
+//      myLogger.logINFO(StringFormat("FYI Margin Required to open one Lot: $ %.2f", MarketInfo(sSymbol, MODE_MARGINREQUIRED)));
+//      myLogger.logINFO(StringFormat("Testing a %s of %s lots at the appropriate Price determined by the \'AccountFreeMarginCheck()\' function", EnumToString(eOrderType), numLots.toString() ));
+//      myLogger.logINFO(StringFormat("\tThe \'MarketInfo(MODE_MARGINREQUIRED)\' function states that you will require $ %.2f of Margin to buy one Lot", MarketInfo(sSymbol, MODE_MARGINREQUIRED) ) );
+//      myLogger.logINFO(StringFormat("\tThe \'AccountFreeMarginCheck\' (%s %s lots of %s) function returns $ %s meaning it must use up $ %.2f of margin [\'Available Margin prior to trade\' minus the \'Estimated free margin after trade\' (from function)]", EnumToString(eOrderType), numLots.toString(), sSymbol, this.toString(), ( oFreeMarginPriorToTrade.toNormalizedDouble() - this.toNormalizedDouble() ) ) );
+//      myLogger.logINFO(StringFormat("\t\tor put as a percentage, you would still have: %s %% of Available Margin left after the trade", sFmt2dp(oAvailPercentMarginAfterTrade.getFigure() ) ));
+//      myLogger.logINFO(StringFormat("\t\tThe Account Stop Out Level: %s", sFmtDdp(AccountStopoutLevel())));
+//   
+//   };
+//   
 
 
 
