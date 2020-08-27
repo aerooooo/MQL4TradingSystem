@@ -785,15 +785,156 @@ class PHDecimal {
    };
 
 
+
+
+
+
+
+
+
+
+
+
+//=====================================================================================================================================================================================================
+
+
+//+------------------------------------------------------------------+
+//| PHPercent    [a subclass of PHDecimal]
+//|
+//| Admittedly, a rather simple numerical object 
+//|
+//| But one who's rules mean that it can only exist between 1 and 100
+//| So it kinda has that logic 'baked in' and >>>you don't have to worry about it<<<
+//|
+//+------------------------------------------------------------------+
+#define _DEFAULT_PERCENTAGE_PRECISION 2
+
+class PHPercent : public PHDecimal 
+{
+/*    //<<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
+
+*/
+
+      //<<<Public Methods>>>
+      public:
+         //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHDecimal's Default Construct
+                           PHPercent::PHPercent() {};
+
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           // Supply 'Units' (between 0.0 and 100.0) and 'Precision' (defaults to 2).  It's basically a PHDecimal ...with validation rules.
+                           PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
+
+         void     PHPercent::setValue(    double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
+         double   PHPercent::getFigure()  const { return this.toNormalizedDouble(); };            //Returns a value between 0    and 100
+         string   PHPercent::toString()   const { return StringConcatenate( sFmtDdp( this.toNormalizedDouble(), this._iPrecision ), "%" ); };  //Returns a string value between 0 and 100, with a "%" suffix
+         double   PHPercent::getPercent() const { return PHDecimal::toNormalizedDouble()/100; };  //Returns a value between 0.00 and   1.00
+
+
+
+
+
+         
+      //<<<Protected Methods>>>
+     protected:
+
+}; //end Class PHPercent
+
+   //+------------------------------------------------------------------+
+   //| PHPercent - Parametric Constructor #1 [Elemental]
+   //|
+   //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
+   //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
+   //|   restricted environment provided by the inherited Class' "Initialization List")
+   //|
+   //| So the Constructor(s) of this Base class AND the Constructor(s) of any inherited class will do any necessary preparation work then call my 'setValue()' with the correct params
+   //+------------------------------------------------------------------+
+   void PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION ) 
+   {
+      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
+
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params (Constructor #1) { dFigure: %.8g, iPrecision: %i } ", dFigure, iPrecision ) );
+
+      //Clear out my PHCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      unsetValue();
+
+      setValue( dFigure, iPrecision );
+      
+      myLogger.logINFO( StringFormat( "final { value: %s, iPrecision: %i }", this.toString(), this._iPrecision ) );
+            
+   };  //end Constructor
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHPercent - validateFigure
+   //|
+   //| I would usually perform validation within the Constructor, but since this has been subclassed from the PHDecimal class,
+   //|   I only get to choose which Base class' Constructor gets called!
+   //|
+   //| Aside: Watch how the Constructor declaration (in the class) calls the Base's (default) Constructor in the 'Initialization List' (which honestly, in this particular case, does next-to-nothing)
+   //|        Then, basically, I call the '.validateAndSetFigure()' Method to do all the *real* work
+   //|
+   //| So I'll allow the Base class Constructor to set a basically 'undefined/uninitialized' object
+   //| and then (in this Method) come along, perform validation, and either 
+   //|   a) Warn the user (again, allowing the values set by the Base Constructor to stand as-is)
+   //|   b) Override the Value with 100% if set out-of-bounds (i.e. <0 or >100)
+   //|   c) allow the values set by the Base Constructor to stand as-is
+   //|
+   //+------------------------------------------------------------------+
+   void PHPercent::setValue( double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION )
+   {   
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      // Call Base Class' .setValue() Method 
+      // Note that 'Cash Rounding' not applicable for Percentages
+      PHDecimal::setValue( dFigure, iPrecision );
+      
+      if ( (dFigure > 0) && (dFigure < 1) )
+         myLogger.logWARN( StringFormat( "Percentages can be set between 0 and 100. If you meant to set a percentage between 0%% and 1%% then fine. Otherwise, if you meant %g%%, set it as %g instead", (dFigure*100), (dFigure*100) ) );
+      
+      if ( ( dFigure < 0 ) || ( dFigure > 100 ) ) {
+         myLogger.logERROR( StringFormat( "params passed { value: %g } is out of bounds - must be between 0 and 100. Object is invalid.", dFigure ) );
+         this.unsetValue();
+      } //end if
+
+   } //end method
+
+
+
+
+
+
+
+
+
+
+
+
 //=====================================================================================================================================================================================================
 
 
 //+------------------------------------------------------------------+
 //| PHCurrDecimal
 //|
-//| An extension of my PHDecimal Class.  It adds:
-//|   >> Cash Rounding
-//|   >> Market Currency Symbol
+//| An extension of my PHDecimal Class.  
+//|
+//| In terms of <<Attributes>> it adds:
+//|   * Cash Rounding
+//|   * Market Currency Symbol
+//|
+//| The '.setValue()' method attempts to be intelligent by
+//|   * Determine the TickSize for the market from SYMBOL_TRADE_TICK_SIZE - will get set as the 'Cash Rounding' Attribute  //e.g. 0.0001  (sometimes, 0.25 - even though the Point size is 0.01!)
+//|   * Determine the Precision for the market from SYMBOL_DIGITS (typially either 3DPs or 5DPs)
+//|
+//| Overrides the '.toNormalizedDouble()' method
+//|   * with one that implements Cash Rounding
 //|
 //+------------------------------------------------------------------+
 class PHCurrDecimal : public PHDecimal 
@@ -1110,119 +1251,6 @@ class PHCurrDecimal : public PHDecimal
 
 
 
-//=====================================================================================================================================================================================================
-
-
-//+------------------------------------------------------------------+
-//| PHPercent
-//|
-//| Admittedly, a rather simple numerical object
-//| But one who's rules mean that it can only exist between 1 and 100
-//| So it kinda has that logic 'baked in' and >>>you don't have to worry about it<<<
-//|
-//+------------------------------------------------------------------+
-#define _DEFAULT_PERCENTAGE_PRECISION 2
-
-class PHPercent : public PHDecimal 
-{
-/*    //<<<Attributes>>>
-         //Inherited Attributes from PHDecimal
-         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
-         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
-         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
-
-*/
-
-      //<<<Public Methods>>>
-      public:
-         //Constructors
-                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
-                           // (Automatically calls PHDecimal's Default Construct
-                           PHPercent::PHPercent() {};
-
-                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
-                           // Supply 'Units' (between 0.0 and 100.0) and 'Precision' (defaults to 2).  It's basically a PHDecimal ...with validation rules.
-                           PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
-
-         void     PHPercent::setValue(    double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION );
-         double   PHPercent::getFigure()  const { return this.toNormalizedDouble(); };            //Returns a value between 0    and 100
-         double   PHPercent::getPercent() const { return PHDecimal::toNormalizedDouble()/100; };  //Returns a value between 0.00 and   1.00
-         
-      //<<<Protected Methods>>>
-     protected:
-
-}; //end Class PHPercent
-
-   //+------------------------------------------------------------------+
-   //| PHPercent - Parametric Constructor #1 [Elemental]
-   //|
-   //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
-   //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
-   //|   restricted environment provided by the inherited Class' "Initialization List")
-   //|
-   //| So the Constructor(s) of this Base class AND the Constructor(s) of any inherited class will do any necessary preparation work then call my 'setValue()' with the correct params
-   //+------------------------------------------------------------------+
-   void PHPercent::PHPercent( const double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION ) 
-   {
-      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
-
-      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "params (Constructor #1) { dFigure: %.8g, iPrecision: %i } ", dFigure, iPrecision ) );
-
-      //Clear out my PHCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
-      unsetValue();
-
-      setValue( dFigure, iPrecision );
-      
-      myLogger.logINFO( StringFormat( "final { value: %s, iPrecision: %i }", this.toString(), this._iPrecision ) );
-            
-   };  //end Constructor
-
-
-
-   //+------------------------------------------------------------------+
-   //| PHPercent - validateFigure
-   //|
-   //| I would usually perform validation within the Constructor, but since this has been subclassed from the PHDecimal class,
-   //|   I only get to choose which Base class' Constructor gets called!
-   //|
-   //| Aside: Watch how the Constructor declaration (in the class) calls the Base's (default) Constructor in the 'Initialization List' (which honestly, in this particular case, does next-to-nothing)
-   //|        Then, basically, I call the '.validateAndSetFigure()' Method to do all the *real* work
-   //|
-   //| So I'll allow the Base class Constructor to set a basically 'undefined/uninitialized' object
-   //| and then (in this Method) come along, perform validation, and either 
-   //|   a) Warn the user (again, allowing the values set by the Base Constructor to stand as-is)
-   //|   b) Override the Value with 100% if set out-of-bounds (i.e. <0 or >100)
-   //|   c) allow the values set by the Base Constructor to stand as-is
-   //|
-   //+------------------------------------------------------------------+
-   void PHPercent::setValue( double dFigure, const int iPrecision = _DEFAULT_PERCENTAGE_PRECISION )
-   {   
-      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-
-      // Call Base Class' .setValue() Method 
-      // Note that 'Cash Rounding' not applicable for Percentages
-      PHDecimal::setValue( dFigure, iPrecision );
-      
-      if ( (dFigure > 0) && (dFigure < 1) )
-         myLogger.logWARN( StringFormat( "Percentages can be set between 0 and 100. If you meant to set a percentage between 0%% and 1%% then fine. Otherwise, if you meant %g%%, set it as %g instead", (dFigure*100), (dFigure*100) ) );
-      
-      if ( ( dFigure < 0 ) || ( dFigure > 100 ) ) {
-         myLogger.logERROR( StringFormat( "params passed { value: %g } is out of bounds - must be between 0 and 100. Object is invalid.", dFigure ) );
-         this.unsetValue();
-      } //end if
-
-   } //end method
-
-
-
-
-
-
-
-
-
-
 
 //=====================================================================================================================================================================================================
 
@@ -1293,7 +1321,7 @@ class PHTicks : public PHCurrDecimal
    PHTicks::PHTicks( const double dTicks, const PH_FX_PAIRS eSymbol ) 
    {
       LLP( LOG_DEBUG ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "params (Constructor #1) { value: %s, sSymbol: %s }", sFmtDdp(dTicks), EnumToString( eSymbol ) ) );
+      myLogger.logINFO( StringFormat( "params (Constructor #1) { dTicks: %.5f, sSymbol: %s }", dTicks, EnumToString( eSymbol ) ) );
 
       //Set my mandatory Class Attributes
       setValue( dTicks, eSymbol );    
@@ -1550,10 +1578,10 @@ class PHLots : public PHCurrDecimal
 {
 
 // PHLots adds new Attributes:  
-//    >> Minimum Lot Size (typically 0.01)
-//    >> Maximum Lot Size (typically 50.0)
-//    >> Lot Step Size (typically 0.01)
-//    >> Standard Contract Size (typically 100,000)
+//    *  Minimum Lot Size (typically 0.01)
+//    *  Maximum Lot Size (typically 50.0)
+//    *  Lot Step Size (typically 0.01)
+//    *  Standard Contract Size (typically 100,000)
 
 // PHLots performs a validation step before setting its attributes (similar to PHPercent)
 
@@ -1577,7 +1605,7 @@ class PHLots : public PHCurrDecimal
 
       //<<<Private Attributes>>>
       private:
-           PHDecimal _volumeMin_Decimal, _volumeStep_Decimal, _volumeMax_Decimal, _stdCntSize_Decimal;  //Obviously all initially, un-initialized
+           PHDecimal _volumeMin_Decimal, _volumeStep_Decimal, _volumeMax_Decimal, _stdCntSize_Decimal;  //All initially, un-initialized
 
 
       //<<<Public Methods>>>
@@ -1651,7 +1679,7 @@ class PHLots : public PHCurrDecimal
       this._iPrecision = iPrecision;
       this._dCashRoundingStep = dCashRoundingStep;
 
-      this._lUnits = -1;   //set it to a rogue value; no other reason than I like to see that in the debugger!0
+      this._lUnits = -1;   //set Units to a rogue value; for no other reason than I don't like seeing 'dirty' memory interpreted as some 'random' figure in the debugger!)
       
    };
 
@@ -1727,16 +1755,29 @@ class PHLots : public PHCurrDecimal
 
 
    //+------------------------------------------------------------------+
-   //| PHLots - sizePercentRiskModel() (Derive num Lots given a StopLossWidth)
+   //| PHLots - sizePercentRiskModel()
    //|
-   //|  This starts by calculating the Risk Value Of 1.0x Lot. Then, after I have the precise number of Lots I'm going to trade, I'll call it again to get the Risk Value of 0.x lots
+   //| Derive the number of Lots - given 
+   //|   a) a StopLossWidth (in Ticks)  (something you might have derived from, say, an '10-day ADTR x 3')
+   //|   b) a (Market) Symbol
+   //|   c) the Percentage Of my Equity To Risk  (typically, 1%)
    //|
-   //| 1. Take x% of Account Equity  (typically 1%)
-   //| 2. Calculating the risk of taking one whole standard lot (1.0 Lot = 100,000 Units)
-   //| 3. Calculate the ratio of one lot's worth divided by 1% Equity (it'll probably be a fraction of a lot)
+   //| Assumes: Being called with an uninitialized PHLot object - so initiaization will be required (minus, the Lot Size, obviously - since that's exactly what we're trying to discover)
+   //|
+   //| Returns 'Lot Size' (in PHLots)
+   //|
+   //| xxxxxThis starts by calculating the Risk Value Of 1.0x Lot. Then, after I have the precise number of Lots I'm going to trade, I'll call it again to get the Risk Value of 0.x lots
+   //| Formula Steps
+   //| =============
+   //| 1. "Account Risk": Calculating the $ risk per Position:  Take x% of Account Equity  (typically 1%)
+   //| 2. "Trade Risk":   Calculating the $ risk per "Lot-ette" i.e. MIN_LOT_SIZE (typically 0.01)
+   //| 3. "Number of Shares/"Lot-ettes" Calculate the ratio of one lot's worth divided by 1% Equity (it'll probably be a fraction of a lot)
    //|
    //| Calls:
    //|   dPriceMove2ValueCalculator()
+   //|
+   //| Nicely documented: [https://www.investopedia.com/terms/p/positionsizing.asp] 
+   //|   - although their "Trade Risk" is calculated as "Dollars per Share", while mine needs to be "Dollars per Lot-ette" (0.01) i.e smallest unit of purchase
    //|
    //+------------------------------------------------------------------+
    void  PHLots::sizePercentRiskModel( const PH_FX_PAIRS eSymbol, const PHTicks& oTicks_StopLossWidth, const PHPercent& oPercentageOfEquityToRisk )
@@ -1747,7 +1788,8 @@ class PHLots : public PHCurrDecimal
 
 //Call to Super() ???
 //PHLots::PHLots0( sSymbol );
-
+// <<<Try this for size? [TBC]...
+      commonConstructor( eSymbol ); 
 
       // Step #1. Given x% of Account Equity  (typically 1%) [oPercentageOfEquityToRisk]
       //---------------------------------------------------------------------------------
@@ -1755,7 +1797,11 @@ class PHLots : public PHCurrDecimal
       //This is not the *price* of 1 x Lot. It's the Stop Loss Width Value of 1 x Standard Contract (1 x Lot of 100,000 of the base ccy)
       //...If I were to buy 1 x Standard Contract, this is how much equity I have decided is acceptable to lose before throwing in the towel
       //...But I'm not going to buy 1 x Standard Contract, I'm going to buy less!
-   
+
+//Where did the logic disappear to?
+//I'm expecting to see something like "1% of Equity"  e.g. Taking a 1% risk of my $50,000 account = $500.00
+// But then...
+//...turning that...into what???!  (a Stop Loss Width?  A Lot Size???)
 
       // Step#2. Calculating the risk of taking one whole standard lot (1.0 Lot = 100,000 Units)
       //-----------------------------------------------------------------------------------------
@@ -1771,7 +1817,7 @@ class PHLots : public PHCurrDecimal
                //Money dMaxPermittedRiskValue;    
       //calculate "what I can afford to lose/risk each trade" (e.g. 1% of equity)
       PHDollar oMaxPermittedRiskValue( AccountEquity() * oPercentageOfEquityToRisk.getPercent() );    //1% of given Equity
-      myLogger.logDEBUG(StringFormat("Max Permitted Risk: %s (%s%% of given Equity: %s)", sFmtMny(oMaxPermittedRiskValue.toNormalizedDouble()), sFmt2dp(oPercentageOfEquityToRisk.getFigure()), sFmtMny(AccountEquity())));
+      myLogger.logDEBUG(StringFormat("Max Permitted Risk: %s (%s%% of given Equity: %s)", sFmtMny(oMaxPermittedRiskValue.toNormalizedDouble()), oPercentageOfEquityToRisk.toString(), sFmtMny(AccountEquity())));
 
       // Step #3. Calculate the ratio of one lot's worth divided by 1% Equity (it'll probably be a fraction of a lot)
       //--------------------------------------------------------------------------------------------------------------
@@ -1939,22 +1985,17 @@ class PHQuote  {
    // <<<<< HELPER FUNCTIONS >>>>>
    //
    //------------------------------------------
-   
-   // Format to 'Digits' number of decimal places ('Digits' varies per currency).
-   // This will automatically format a JPY (2dp) differently from a USD (4dp).
-   string sFmtDdp( const double d )
+
+   //+------------------------------------------------------------------+
+   //| sFmtDdp  (format to 2 dp with no prefix                                   |
+   //+------------------------------------------------------------------+
+   string sFmtDdp( const double dValue, const int iPrecision  )
      {
-      return( DoubleToStr( d, Digits ) );     //This will round to the necessary # digits, and *display* them to the desired format!
+      string sFormat = StringConcatenate( "%.", iPrecision, "f" );
+      return(StringFormat( sFormat, dValue ) );
      }
    
    
-   //+------------------------------------------------------------------+
-   //|                                                                  |
-   //+------------------------------------------------------------------+
-   double dNormD( const double d )
-     {
-      return( NormalizeDouble( d, Digits ) );    //This will round to the necessary # digits, but may not *display* them to the desired format!
-     }
    
    //+------------------------------------------------------------------+
    //| sFmtMny  (2 dp with a $ prefix                                   |
@@ -1964,13 +2005,6 @@ class PHQuote  {
       return(StringFormat( "$ %.2f", d ) );
      }
 
-   //+------------------------------------------------------------------+
-   //| sFmtMny  (2 dp with no prefix                                   |
-   //+------------------------------------------------------------------+
-   string sFmt2dp( double d )
-     {
-      return(StringFormat( "%.2f", d ) );
-     }
 
 
 #endif 
