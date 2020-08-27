@@ -18,18 +18,6 @@
 #endif
 
 
-enum PH_FX_PAIRS
-  {
-   EURUSD,
-   GBPUSD,
-   AUDUSD,
-   NZDUSD,
-   USDJPY,
-   USDCHF,
-   USDCAD
-  };
-
-
 //The integer numbers match the respective "Order Properties" Codes for the OrderSend() function
 enum PH_ORDER_TYPES
   {
@@ -42,9 +30,41 @@ enum PH_ORDER_TYPES
   };
 
 
+
+#define PH_CURR_CODE_OFFSET 100
+#define PH_CURR_CODE_COUNT  300
+enum PH_CURR_CODE
+  {
+   DUMMY = PH_CURR_CODE_OFFSET,
+#include <PHCURRCODES.txt>
+  };
+  
+  
+//#define PH_FX_PAIRS_OFFSET 100
+#define PH_FX_PAIRS_OFFSET (PH_CURR_CODE_OFFSET + PH_CURR_CODE_COUNT)
+#define PH_FX_PAIRS_COUNT  100
+
+enum PH_FX_PAIRS
+// Explicitly list "The Majors".  All the rest can be included from an external file. The file has been edited to exclude the seven Majors.
+  {
+   EURUSD = PH_FX_PAIRS_OFFSET,
+   GBPUSD,
+   AUDUSD,
+   NZDUSD,
+   USDJPY,
+   USDCHF,
+   USDCAD,
+#include <PHCURRCODES.txt>
+  };
+
+
+
+#define PH_ENTRY_REASONS_OFFSET (PH_FX_PAIRS_OFFSET + PH_FX_PAIRS_COUNT)
+#define PH_ENTRY_REASONS_COUNT 99
+
 enum PH_ENTRY_REASONS
   {
-   ENTRY_not_specified  = 400,  //shouldn't ever see this
+   ENTRY_not_specified  = PH_ENTRY_REASONS_OFFSET,  //shouldn't ever see this reason
    ENTRY_RANDOMCOINFLIP,
    ENTRY_MA_CROSSOVER,
    ENTRY_ADX,
@@ -53,9 +73,13 @@ enum PH_ENTRY_REASONS
    ENTRY_INTRADAY
   };
 
+
+#define PH_EXIT_REASONS_OFFSET (PH_ENTRY_REASONS_OFFSET + PH_ENTRY_REASONS_COUNT)
+#define PH_EXIT_REASONS_COUNT 100
+
 enum PH_EXIT_REASONS
   {
-   EXIT_not_specified  = 500, //means "The prior setting is probably valid for the exit, and so I don't want you to overwrite the reason"
+   EXIT_not_specified  = PH_EXIT_REASONS_OFFSET, //means "The prior setting is probably valid for the exit, and so I don't want you to overwrite the reason"
    EXIT_MA_CROSSOVER,
    EXIT_MAE_STOP,
    EXIT_2xDTR_STOP,           //the price moved two-times yesterday's DTR...in a single day!
@@ -68,6 +92,9 @@ enum PH_EXIT_REASONS
   };
 
 
+#define PH_TRADE_STATUS_OFFSET (PH_EXIT_REASONS_OFFSET + PH_EXIT_REASONS_COUNT)
+#define PH_TRADE_STATUS_COUNT 10
+
 enum PH_TRADE_STATUS
   {
    TRDSTATUS_WAITINGTOOPEN   = 600,
@@ -76,7 +103,11 @@ enum PH_TRADE_STATUS
    TRDSTATUS_CLOSED
   };
 
-enum PH_OPERATOR
+
+#define PH_COMPARISON_OPERATOR_OFFSET (PH_TRADE_STATUS_OFFSET + PH_TRADE_STATUS_COUNT)
+#define PH_COMPARISON_OPERATOR_COUNT 10
+
+enum PH_COMPARISON_OPERATOR
   {
    gt,
    gte,
@@ -85,6 +116,20 @@ enum PH_OPERATOR
    eq,
    ne
   };
+
+
+#define PH_OBJECT_STATUS_OFFSET (PH_COMPARISON_OPERATOR_OFFSET + PH_COMPARISON_OPERATOR_COUNT)
+#define PH_OBJECT_STATUS_COUNT 10
+
+enum PH_OBJECT_STATUS
+  {
+   OBJECT_UNITIALIZED,
+   OBJECT_PARTIALLY_INITIALIZED,
+   OBJECT_FULLY_INITIALIZED
+  };
+
+
+
 
 /*
 enum PH_INITIAL_STOPLOSS_ALGORITHM {
@@ -117,13 +162,6 @@ T StringToEnum(string str,T enu)
    return(-1);
   }
 
-
-enum PH_OBJECT_STATUS
-  {
-   OBJECT_UNITIALIZED,
-   OBJECT_PARTIALLY_INITIALIZED,
-   OBJECT_FULLY_INITIALIZED
-  };
 
 
 
@@ -223,7 +261,7 @@ class PHDecimal {
                   bool     PHDecimal::lt      ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
                   bool     PHDecimal::lte     ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
 */
-         bool     PHDecimal::operatorAndOperand( const PH_OPERATOR eOp, const PHDecimal& oOperand ) const;
+         bool     PHDecimal::operatorAndOperand( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const;
                   
                   bool     PHDecimal::isValueReadable() const;
                   double   PHDecimal::toNormalizedDouble() const;
@@ -641,7 +679,7 @@ class PHDecimal {
    //| 
    //|
    //+------------------------------------------------------------------+
-   bool     PHDecimal::operatorAndOperand( const PH_OPERATOR eOp, const PHDecimal& oOperand ) const
+   bool     PHDecimal::operatorAndOperand( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const
    {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "param { dComparitorUnits: %s } ", oOperand.toString() ) );
@@ -916,6 +954,224 @@ class PHPercent : public PHDecimal
 
 
 
+//+------------------------------------------------------------------+
+//| PHCurrency
+//|
+//| An extension of my PHDecimal Class.  
+//|
+//| In terms of <<Attributes>> it adds:
+//|   * Cash Rounding     (no assumptions made, will be set at instantiation)
+//|   * Currency Code     (no assumptions made, will be set at instantiation)
+//|   * Currency Symbol   (no assumptions made, will be set at instantiation)
+//|
+//| Overrides the '.toNormalizedDouble()' method
+//|   * with one that implements Cash Rounding
+//|
+//+------------------------------------------------------------------+
+class PHCurrency : public PHDecimal 
+{
+/* <<<Attributes>>>
+         //Inherited Attributes from PHDecimal
+         PH_OBJECT_STATUS  _eStatus;      // (Public) I should make this private and only accessible via a "is" method, but Hey (shrug)
+         long              _lUnits;       // (Protected) The decimal value (Stored as a Long)
+         int               _iPrecision;   // (Protected) Precision of your value a.k.a. "the minimum unit of account"  e.g. '2' represents 2dp or 0.01
+
+*/
+   protected:
+      //Protected Attributes
+      PH_CURR_CODE      _eCurrCode;
+      string            _sCurrSymbol;
+      double            _dCashRoundingStep; // The lowest physical denomination of currency [https://en.wikipedia.org/wiki/Cash_rounding]. e.g. 0.25
+
+
+// <<< Methods >>>
+   public:
+      //Constructors
+                           // Default Constructor (empty body: {}) - construct an UNINITIALIZED object (necessary for when you include one in a Structure/Class)
+                           // (Automatically calls PHDecimal's Default Construct
+                           PHCurrency::PHCurrency() : _eCurrCode(-1), _sCurrSymbol(""), _dCashRoundingStep(-1) {} ;
+
+                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           // Supply 'Currency Code', 'Currency Symbol' and 'Cash Rounding Step'
+                           //    If not supplied:
+                           //       *  assume a 'Precision' of two digits
+                           //       *  assume the 'Currency Symbol' will be the same as Currency Code
+                           //       *  assume a 'Cash Rounding Step' that corresponds to a single digit of the 'Precision' (e.g. 2 ==> 0.01 )
+                           PHCurrency::PHCurrency( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const int iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 );  
+
+
+      //Public Methods
+                           // Same as Parametric Constructor #1 [Elemental] (Regular Constructor) 
+         void              PHCurrency::setValue( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const int iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 );
+         
+         void              PHCurrency::unsetValue();
+         double            PHCurrency::toNormalizedDouble() const;    // Override PHDecimal::toNormalizedDouble() - I need to incorporate 'Cash Rounding'
+         string            PHCurrency::toString() const               // Override PHDecimal::toString()...otherwise it uses PHDecimal's .toNormalizeDouble() !
+                           { string sFormatString = StringFormat( "%%s %%.%if", _iPrecision ); return( StringFormat( sFormatString, this._sCurrSymbol, PHCurrency::toNormalizedDouble() ) ); };
+
+}; //end Class PHCurrency
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrency - Parametric Constructor #1 [Elemental]
+   //|
+   //| This a skeleton Constructor really.  Why is this so empty? Why does all this Constructor really do is just call the 'setValue()' method?
+   //| Answer: Because it's difficult to call Base's Constructors (because it's hard to often *construct* the necessary parameters using the 
+   //|   restricted environment provided by the inherited Class' "Initialization List")
+   //|
+   //| So the Constructor(s) of this Base class AND the Constructor(s) of any inherited class will do any necessary preparation work then call my 'setValue()' with the correct params
+   //+------------------------------------------------------------------+
+   PHCurrency::PHCurrency( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const int iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 )
+   {
+      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
+
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      
+      if ( isEnumValid( eCurrCode, PH_CURR_CODE_OFFSET, PH_CURR_CODE_COUNT ) ) {
+      
+         myLogger.logINFO( StringFormat( "params (Constructor #1) { eCurrCode: %s, sCurrSymbol: %s, dCashRoundingStep: %s } ", EnumToString( eCurrCode ), sCurrSymbol, sFmtDdp( dCashRoundingStep, 5 ) ) );
+   
+         //Clear out my PCCurrency's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+         unsetValue();
+   
+         setValue( dInitialUnits, eCurrCode, iPrecision, sCurrSymbol, dCashRoundingStep );
+         
+         myLogger.logINFO( StringFormat( "final (Constructor #1) { eCurrCode: %s, sCurrSymbol: %s, dCashRoundingStep: %s } ", EnumToString( this._eCurrCode ), this._sCurrSymbol, sFmtDdp( this._dCashRoundingStep, 5 ) ) );
+      } else
+         myLogger.logERROR( StringFormat( "Currency Code '%s' is of the wrong type! ", EnumToString( eCurrCode ) ) );
+            
+   };  //end Constructor
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrency  unsetValue() - Uninitialize/Empty Class Attributes
+   //|
+   //| 1a./1b. Set eSymbol and sSymbol to NULL
+   //|      2. Set Cash Rounding to NULL
+   //|      3. Unset Parent Class' values
+   //|
+   //+------------------------------------------------------------------+
+   void PHCurrency::unsetValue() 
+   {
+      // Unset this Class' mandatory attributes
+      
+      this._eCurrCode = -1;
+      this._sCurrSymbol = "";
+      this._dCashRoundingStep = -1;
+
+      PHDecimal::unsetValue();
+
+   }; //end PHCurrency::unsetValue()
+
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrency - SetValue()  [Elemental]
+   //|
+   //| Supply 'Currency Code', 'Currency Symbol' and 'Cash Rounding Step'
+   //|    If not supplied:
+   //|       *  assume a 'Precision' of two digits
+   //|       *  assume the 'Currency Symbol' will be the same as Currency Code
+   //|       *  assume a 'Cash Rounding Step' that corresponds to a single digit of the 'Precision' (e.g. 2 ==> 0.01 )
+   //| 
+   //| Cash Rounding Step used when the multiples of the lowest currency unit differs from Point[i.e. 10^^-Precision]
+   //| 
+   //+------------------------------------------------------------------+
+   void PHCurrency::setValue( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const int iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      //Clear out my PHCurrency's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      unsetValue();
+
+      // <<Units and Precision>>
+      // Use the Base Class' (PHDecimal's) Method
+      // If not supplied, Precision will assumed to be two digits
+      PHDecimal::setValue( dInitialUnits, iPrecision );
+
+      // <<<Currency Symbol>>>
+      this._eCurrCode = eCurrCode;
+      
+      
+      // <<<Currency Symbol>>>
+      // If one has been supplied, then use the 3-character string representation of the Currency Code
+      if ( sCurrSymbol == "" )
+         this._sCurrSymbol = EnumToString( eCurrCode );
+      else
+         this._sCurrSymbol = sCurrSymbol;
+         
+      
+      
+      // <<Cash Rounding Step>>
+      if ( dCashRoundingStep == -1 )
+         this._dCashRoundingStep = MathPow( 10, -iPrecision );
+      else
+        this._dCashRoundingStep = dCashRoundingStep;
+      
+      myLogger.logINFO( StringFormat( "final (Constructor #1) { eCurrCode: %s, sCurrSymbol: %s, dCashRoundingStep: %s } ", EnumToString( this._eCurrCode ), this._sCurrSymbol, sFmtDdp( this._dCashRoundingStep, 5 ) ) );
+   }; //end PHCurrency::setValue
+
+
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHCurrency - toNormalizedDouble()
+   //|
+   //| This should be the *only* way to retrieve the value 
+   //|  (Other retreival methods must be a wrapper around this one)
+   //|
+   //|   1. Call the PHDecimal::toNormalizedDouble() to:
+   //|      a. Cast the units as a Double
+   //|         Aside: I considered performing Cash Rounding on a Long - which appears that it would probably work
+   //|                (the result of the divide [ Units / VolumeStep ] would get truncated into an Int or Long...but that forces me to always round DOWN/truncate. If I use Doubles, I get to choose how to round)
+   //|                But I now cast early because:
+   //|                  a) I have to eventually return a Double anyway
+   //|                  b) The maths of Steps #2 and #3 become easier using Doubles
+   //|
+   //|      b. Shift the value to the right (by 'Precision' number of digits)
+   //|
+   //|   2. Perform Cash Rounding on the Double value
+   //|      When the lowest denomination (Tick Value) is the same as the Point Value this initially appears to be an unnecessary step e.g. 1234 ÷ 1 (the equiv of 12.34 ÷ 0.01) 
+   //|      But this step becomes necessary when they are different (as in metals) where I must return multiples in a different Step Size e.g. 1234 ÷ 25 (the equiv of 12.34 ÷ 0.25)
+   //|
+   //+------------------------------------------------------------------+
+   double   PHCurrency::toNormalizedDouble() const
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+
+      double dUnits;
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+      
+         // Step #1. Cast the units as a Double and Shift the value to the right (by 'Precision' number of digits)
+         dUnits = PHDecimal::toNormalizedDouble();
+         myLogger.logDEBUG( StringFormat( "Shifted Right (But not yet Cash-Rounded) { dUnits: %g, _iPrecision: %i } ", dUnits, _iPrecision ) );
+         
+         // Step #2 - Cash Rounding
+            //His Code [https://mql4tradingautomation.com/mql4-calculate-position-size/]:     dLotSize = MathRound( LotSize / MarketInfo( Symbol(), MODE_LOTSTEP ) ) * MarketInfo( Symbol() , MODE_LOTSTEP );
+         dUnits = MathRound( dUnits / _dCashRoundingStep ) * _dCashRoundingStep;
+
+         myLogger.logINFO( StringFormat( "final (Cash Rounded) { dUnits: %g, _iPrecision: %i } ", dUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "No value to return on an uninitialized Object!" );
+         dUnits = NULL;
+      }
+
+      return( dUnits );
+   };  //end PHCurrency::toNormalizedDouble()
+
+
+
+
+
+
+
+
+
+
 
 //=====================================================================================================================================================================================================
 
@@ -972,11 +1228,12 @@ class PHCurrDecimal : public PHDecimal
          void              PHCurrDecimal::setValue( const double dInitialUnits, const PH_FX_PAIRS eSymbol );
          void              PHCurrDecimal::setValue( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol );  
          void              PHCurrDecimal::unsetValue();
-         double            PHCurrDecimal::toNormalizedDouble() const;    // Override PHDecimal::toNormalizedDouble() - I need to incorporate 'Cash Rounding'
-         string            PHCurrDecimal::toString() const               // Override PHDecimal::toString()...otherwise it uses PHDecimal's .toNormalizeDouble() !
-                           { string sFormatString = StringFormat( "%%.%if", _iPrecision ); return( StringFormat( sFormatString, PHCurrDecimal::toNormalizedDouble() ) ); };
-         string            PHCurrDecimal::objectToString() const
-                           { return( StringFormat( "PHCurrDecimal={ CashRoundingStep: %.8f, Symbol: %s, %s }", _dCashRoundingStep, _sSymbol, PHDecimal::objectToString() ) ); };
+//         double            PHCurrDecimal::toNormalizedDouble() const;    // Override PHDecimal::toNormalizedDouble() - I need to incorporate 'Cash Rounding'
+//         string            PHCurrDecimal::toString() const               // Override PHDecimal::toString()...otherwise it uses PHDecimal's .toNormalizeDouble() !
+//                           { string sFormatString = StringFormat( "%%.%if", _iPrecision ); return( StringFormat( sFormatString, PHCurrDecimal::toNormalizedDouble() ) ); };
+//         string            PHCurrDecimal::objectToString() const
+//                           { return( StringFormat( "PHCurrDecimal={ CashRoundingStep: %.8f, Symbol: %s, %s }", _dCashRoundingStep, _sSymbol, PHDecimal::objectToString() ) ); };
+   
    protected:
       //Protected Methods
          void              PHCurrDecimal::setPartialValue( const PH_FX_PAIRS eSymbol );
@@ -1056,11 +1313,9 @@ class PHCurrDecimal : public PHDecimal
    //+------------------------------------------------------------------+
    void PHCurrDecimal::setValue( const double dInitialUnits, const int iPrecision, const double dCashRoundingStep, const PH_FX_PAIRS eSymbol )
    {
-      // <Phantom Step occurs here> - Call PHDecimal::PHDecimal() to set the Attributes to NULL - particularly the Object Status to UNINITIALIZED
-
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
 
-      //Clear out my PCCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
+      //Clear out my PHCurrDecimal's Attributes (PHDecimal's Attributes Have already been cleared with the automatic Base Constructor call)
       unsetValue();
 
       //This will set my Long to the wrong precision (i.e. the precision of the Market, not what's specified. No matter, I'll overwrite it in the next step
@@ -1195,55 +1450,6 @@ class PHCurrDecimal : public PHDecimal
       //Assume that only the setPartialValue() can set an object to be partially initialized - and hence all the other fields are set correctly
       this._eStatus = OBJECT_FULLY_INITIALIZED;
    }
-
-
-   //+------------------------------------------------------------------+
-   //| PHCurrDecimal - toNormalizedDouble()
-   //|
-   //| This should be the *only* way to retrieve the value 
-   //|  (Other retreival methods must be a wrapper around this one)
-   //|
-   //|   1. Call the PHDecimal::toNormalizedDouble() to:
-   //|      a. Cast the units as a Double
-   //|         I considered performing Cash Rounding on a Long - which appears that it would probably work
-   //|         (the result of the divide [ Units / VolumeStep ] would get truncated into an Int or Long...but that forces me to always round DOWN/truncate. If I use Doubles, I get to choose how to round)
-   //|         But I now cast early because:
-   //|            a) I have to eventually return a Double anyway
-   //|            b) The maths of Steps #2 and #3 become easier using Doubles
-   //|
-   //|      b. Shift the value to the right (by 'Precision' number of digits)
-   //|
-   //|   2. Perform Cash Rounding on the Double value
-   //|      When the lowest denomination (Tick Value) is the same as the Point Value this initially appears to be an unnecessary step e.g. 1234 ÷ 1 (the equiv of 12.34 ÷ 0.01) 
-   //|      But this step becomes necessary when they are different (as in metals) where I must return multiples in a different Step Size e.g. 1234 ÷ 25 (the equiv of 12.34 ÷ 0.25)
-   //|
-   //+------------------------------------------------------------------+
-   double   PHCurrDecimal::toNormalizedDouble() const
-   {
-      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-
-      double dUnits;
-      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
-      
-         // Step #1. Cast the units as a Double and Shift the value to the right (by 'Precision' number of digits)
-         dUnits = PHDecimal::toNormalizedDouble();
-         myLogger.logDEBUG( StringFormat( "Shifted Right (But not yet Cash-Rounded) { dUnits: %g, _iPrecision: %i } ", dUnits, _iPrecision ) );
-         
-         // Step #2 - Cash Rounding
-            //His Code [https://mql4tradingautomation.com/mql4-calculate-position-size/]:     dLotSize = MathRound( LotSize / MarketInfo( Symbol(), MODE_LOTSTEP ) ) * MarketInfo( Symbol() , MODE_LOTSTEP );
-         dUnits = MathRound( dUnits / _dCashRoundingStep ) * _dCashRoundingStep;
-
-         myLogger.logINFO( StringFormat( "final (Cash Rounded) { dUnits: %g, _iPrecision: %i } ", dUnits, _iPrecision ) );
-      } else {
-         myLogger.logERROR( "No value to return on an uninitialized Object!" );
-         dUnits = NULL;
-      }
-
-      return( dUnits );
-   };  //end toNormalizedDouble()
-
-
-
 
 
 
@@ -2003,6 +2209,11 @@ class PHQuote  {
    string sFmtMny( const double d )
      {
       return(StringFormat( "$ %.2f", d ) );
+     }
+
+
+   bool  isEnumValid( const int eValue, const int iOffset, const int iCount ) {
+      return( ( eValue >= iOffset ) && ( eValue <= ( iOffset + iCount ) ) );
      }
 
 
