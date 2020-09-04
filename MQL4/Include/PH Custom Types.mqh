@@ -257,8 +257,10 @@ class PHDecimal {
       //Constructors (Abstract Class)
                             // Constructor #0 [Default] - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
                            PHDecimal::PHDecimal() : _eStatus( OBJECT_UNITIALIZED ), _lUnits( -1 ), _iPrecision( -1 ) {};
-                           // Construct #1 [Parametric] (Regular Constructor)
-                           PHDecimal::PHDecimal( const double dInitialUnits, const short iPrecision );  // Constructor #1 - The "real" Constructor
+                           // Constructor #1 [Parametric] (Regular Constructor)
+                           PHDecimal::PHDecimal( const double dInitialUnits, const short iPrecision );
+                           // Constructor #2 [Object] (Copy Constructor)
+                           PHDecimal::PHDecimal( const PHDecimal& oDecimal );
 
       //Public Methods
                   void     PHDecimal::setValue( const double dInitialUnits, const short iPrecision );
@@ -331,6 +333,21 @@ class PHDecimal {
       myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", this._lUnits, this._iPrecision ) );
             
    };  //end Constructor
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - Constructor #2   [Object]  (Copy Constructor)
+   //|
+   //+------------------------------------------------------------------+
+   PHDecimal::PHDecimal( const PHDecimal& oDecimal )
+   {
+      this._lUnits     = oDecimal._lUnits;
+      this._iPrecision = oDecimal._iPrecision;
+      this._eStatus    = oDecimal._eStatus;
+   
+   }
+
 
 
 
@@ -1008,13 +1025,21 @@ class PHCurrency : public PHDecimal
                            // (Automatically calls PHDecimal's Default Construct
                            PHCurrency::PHCurrency() : _eCurrCode(-1), _sCurrSymbol(""), _dCashRoundingStep(-1) {} ;
 
-                           // Parametric Constructor #1 [Elemental] (Regular Constructor) 
+                           // Constructor #1 [Elemental] (Regular Constructor) 
                            // Supply 'Currency Code', 'Currency Symbol' and 'Cash Rounding Step'
                            //    If not supplied:
                            //       *  assume a 'Precision' of two digits
                            //       *  assume the 'Currency Symbol' will be the same as Currency Code
                            //       *  assume a 'Cash Rounding Step' that corresponds to a single digit of the 'Precision' (e.g. 2 ==> 0.01 )
                            PHCurrency::PHCurrency( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const short iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 );  
+
+                           // Parametric Constructor #2   [Object]  (Copy Constructor)
+                           PHCurrency::PHCurrency( const PHCurrency& oCurrency ) : PHDecimal( oCurrency )
+                              {
+                                 this._eCurrCode         = oCurrency._eCurrCode;
+                                 this._sCurrSymbol       = oCurrency._sCurrSymbol;
+                                 this._dCashRoundingStep = oCurrency._dCashRoundingStep;
+                              };
 
 
       //Public Methods
@@ -1059,6 +1084,28 @@ class PHCurrency : public PHDecimal
          myLogger.logERROR( StringFormat( "Currency Code '%s' is of the wrong type! ", EnumToString( eCurrCode ) ) );
             
    };  //end Constructor
+
+
+
+/*
+
+   //+------------------------------------------------------------------+
+   //| PHCurrency - Constructor #2   [Object]  (Copy Constructor)
+   //|
+   //+------------------------------------------------------------------+
+   PHCurrency::PHCurrency( const PHCurrency& oCurrency )
+   {
+      this._lUnits     = oDecimal._lUnits;
+      this._iPrecision = oDecimal._iPrecision;
+      this._eStatus    = oDecimal._eStatus;
+
+
+      this._eCurrCode         = oCurrency._eCurrCode;
+      this._sCurrSymbol       = oCurrency._sCurrSymbol;
+      this._dCashRoundingStep = oCurrency._dCashRoundingStep;
+   
+   }
+*/
 
 
 
@@ -1184,6 +1231,27 @@ class PHCurrency : public PHDecimal
 
 
 
+//=====================================================================================================================================================================================================
+
+class PHDepositCurrency : public PHCurrency
+// PHDepositCurrency subclasses PHCurrency.  
+// It's really just a convenience Class where the Currency Code (USD), Currency Symbol ($) and Precision (2DPs) are set in advance
+{
+   public:
+      //Constructors
+                           // Parametric Constructor #1   [Elemental]  (Regular Constructor)
+                           PHDepositCurrency::PHDepositCurrency( const double dInitialUnits = -1 ) : PHCurrency( dInitialUnits, USD, 2, "$", 0.01 ) {} ;
+
+                           // Parametric Constructor #2   [Object]  (Copy Constructor)
+                           PHDepositCurrency::PHDepositCurrency( const PHCurrency& oCurrency ) : PHCurrency( oCurrency ) {}
+
+
+}; //end Class PHDepositCurrency
+
+
+
+//PHCurrency::PHCurrency( const double dInitialUnits, const  PH_CURR_CODE eCurrCode, const short iPrecision = 2, const string sCurrSymbol = "", const double dCashRoundingStep = -1 );  
+
 
 
 //=====================================================================================================================================================================================================
@@ -1237,7 +1305,8 @@ NEW ATTRIBUTES (Protected):
                            PHMarket::PHMarket( const PH_FX_PAIRS eTickerSymbol );   
                      
          //Public Methods
-               void        PHMarket::setValue( const PH_FX_PAIRS eTickerSymbol );
+         void              PHMarket::setValue( const PH_FX_PAIRS eTickerSymbol );
+         PHDepositCurrency PHMarket::getTickValueForStdContract( PHDepositCurrency& oTickValueInUSD );   //non-const - this function will amend its Units
                
 }; //end Class PHMarket
 
@@ -1280,14 +1349,59 @@ NEW ATTRIBUTES (Protected):
       //Set my mandatory Class Attributes
       this._eTickerSymbol = eTickerSymbol;
       this._sTickerSymbol = EnumToString( eTickerSymbol );
+     
 
       this._eStatus = OBJECT_PARTIALLY_INITIALIZED;
          
    } // end PHMarket::setValue()
    
    
-   
+/*
+   double  DeltaValuePerLot(string pair=""){
+        //* Value in account currency of a Point of Symbol.
+        //* In tester I had a sale: open=1.35883 close=1.35736 (0.0147)
+        //* gain$=97.32/6.62 lots/147 points=$0.10/point or $1.00/pip.
+        //* IBFX demo/mini       EURUSD TICKVALUE=0.1 MAXLOT=50 LOTSIZE=10,000
+        //* IBFX demo/standard   EURUSD TICKVALUE=1.0 MAXLOT=50 LOTSIZE=100,000
+        //*                                  $1.00/point or $10.0/pip.
+        //*
+        //* https://www.mql5.com/en/forum/127584 CB: MODE_TICKSIZE will usually return the
+        //* same value as MODE_POINT (or Point for the current symbol), however, an
+        //* example of where to use MODE_TICKSIZE would be as part of a ratio with
+        //* MODE_TICKVALUE when performing money management calculations which need
+        //* to take account of the pair and the account currency. The reason I use
+        //* this ratio is that although TV and TS may constantly be returned as
+        //* something like 7.00 and 0.0001 respectively, I've seen this
+        //* (intermittently) change to 14.00 and 0.0002 respectively (just example
+        //* tick values to illustrate).
+        //* https://www.mql5.com/en/forum/135345 zzuegg reports for non-currency DE30:
+        //* MarketInfo(Symbol(),MODE_TICKSIZE) returns 0.5
+        //* MarketInfo(Symbol(),MODE_DIGITS) return 1
+        //* Point = 0.1
+        //* Prices to open must be a multiple of ticksize 
+       if (pair == "") pair = Symbol();
+       return(  MarketInfo(pair, MODE_TICKVALUE)
+              / MarketInfo(pair, MODE_TICKSIZE) ); // Not Point.
+   }
+*/   
 
+   //+------------------------------------------------------------------+
+   //| PHMarket - getTickValueForStdContract()
+   //|
+   //| Takes
+   //|   * [mandatory] PHDepositCurrency& oTickValueInUSD as a non-const parameter - this function will amend its Units
+   //|
+   //+------------------------------------------------------------------+
+   PHDepositCurrency PHMarket::getTickValueForStdContract( PHDepositCurrency& oTickValueInUSD )
+   {
+      double dTickValueInUSD  = MarketInfo( this._sTickerSymbol, MODE_TICKVALUE ) / MarketInfo( this._sTickerSymbol, MODE_TICKSIZE ); // Note: Using MODE_TICKSIZE, not Point.
+      short iPrecision = (short) SymbolInfoInteger( this._sTickerSymbol, SYMBOL_DIGITS );
+
+      oTickValueInUSD.setValue( dTickValueInUSD, iPrecision );
+   
+      return( oTickValueInUSD );
+   }
+   
 
 
 /*
@@ -1991,89 +2105,47 @@ class PHLots : public PHMarket
 
 
       if ( this._eStatus == OBJECT_UNITIALIZED ) {
-         myLogger.logERROR( "calcStopLossWidth_10dATRx3 cannot be performed on an uninitialized Object!" );
+         myLogger.logERROR( "sizePercentRiskModel() cannot be performed on an uninitialized Object!" );
          
       } else {
 
-         // Step #1. Given x% of Account Equity  (typically 1%) [oPercentageOfEquityToRisk]
-         //---------------------------------------------------------------------------------
-         //The $ value of what would be at risk, in terms of Deposit Currency, if you were to place an order for one whole lot (100,000 units)
-         //This is not the *price* of 1 x Lot. It's the Stop Loss Width Value of 1 x Standard Contract (1 x Lot of 100,000 of the base ccy)
-         //...If I were to buy 1 x Standard Contract, this is how much equity I have decided is acceptable to lose before throwing in the towel
-         //...But I'm not going to buy 1 x Standard Contract, I'm going to buy less!
+         // Step #1 - Account risk ($)
+         //---------------------------
+         // Pick the *percentage* of your account (either Balance or Equity) you are willing to risk on a trade. 
+         // "If starting out, pick 0.5%. If you have a good track record and a viable trading method, select 1%. If you are consistently profitable, then you could possibly go up to 1.5% or 2%."
+         // % of Account Equity is given: [oPercentageOfEquityToRisk]
+
+         double dAccountValue = AccountBalance();   //or AccountEquity()?
+         PHDepositCurrency oAccountRisk( dAccountValue );
+         oAccountRisk.multiply( oPercentageOfEquityToRisk.getPercent() );
+         myLogger.logDEBUG( StringFormat( "Account risk:  dAccountValue: %s @ %s results in an Account Risk of: %s", sFmtMny(dAccountValue), oPercentageOfEquityToRisk.toString(), oAccountRisk.toString() ) );
+
+
+         // Step#2 - Trade Risk ($)
+         //------------------------
+         //  (given in Ticks, converted into $$$)
+         PHDepositCurrency oTickValue();
+         this.getTickValueForStdContract( oTickValue );  // oTickValue's Units will be populated with the '$ Value per Tick per Standard Contract'
+         oTickValue.multiply( oTicks_StopLossWidth );
+//         myLogger.logDEBUG( StringFormat( "Value of a Tick (per Standard Contract): %s (Represents Risk)", oTicks_StopLossWidth.toString(), oLots.toString(), oRiskValueOf1Lot.toString() ) );
+
+
    
-//Where did the logic disappear to?
-//I'm expecting to see something like "1% of Equity"  e.g. Taking a 1% risk of my $50,000 account = $500.00
-// But then...
-//...turning that...into what???!  (a Stop Loss Width?  A Lot Size???)
-
-
-//[Jaron Fort   https://www.mql5.com/en/forum/242198#comment_7312629]
-int sl=80;
-double risk=.01; // 1%
-double risk_amt=AccountBalance()*risk;  //or AccountEquity()?
-double dDeltaValuePerLot = DeltaValuePerLot(Symbol());  //USD Value per Standard Contract
-double delta=dDeltaValuePerLot*Point;  //USD Value per tick (dDeltaValuePerLot ÷ Standard Contract in Units), or, dDeltaValuePerLot*Point)
-double lots=NormalizeDouble(risk_amt/sl/delta,2); // Volume
-
-/*
-         // Step#2. Calculating the risk of taking one whole standard lot (1.0 Lot = 100,000 Units)
-         //-----------------------------------------------------------------------------------------
-         // Get a *rough shot* at calculating the Risk by calculating my risk at the standard lot size (1.0 Lot = 100,000 Units)
-         // (I probably won't be able to afford this, but my algorithm will later scale it down into lots of x0.01 automatically)
-         PHLots   oLots( 1.0, eTickerSymbol );
-         
-         PHDollar oRiskValueOf1Lot();
-//      PHDollar oRiskValueOf1Lot( eTickerSymbol, oTicks_StopLossWidth, oLots );   //(Calling a non-default PHDollar Constructor)
-         myLogger.logDEBUG( StringFormat( "Value of a %s Tick move with a %s x Contract: %s (Represents Risk)", oTicks_StopLossWidth.toString(), oLots.toString(), oRiskValueOf1Lot.toString() ) );
-            
-         //A subset of the entire Account that you are prepared to lose for this trade, in terms of Deposit Currency. Each trade should never risk more than this.
-                  //Money dMaxPermittedRiskValue;    
-         //calculate "what I can afford to lose/risk each trade" (e.g. 1% of equity)
-         PHDollar oMaxPermittedRiskValue( AccountEquity() * oPercentageOfEquityToRisk.getPercent() );    //1% of given Equity
-         myLogger.logDEBUG(StringFormat("Max Permitted Risk: %s (%s%% of given Equity: %s)", sFmtMny(oMaxPermittedRiskValue.toNormalizedDouble()), oPercentageOfEquityToRisk.toString(), sFmtMny(AccountEquity())));
-   
-         // Step #3. Calculate the ratio of one lot's worth divided by 1% Equity (it'll probably be a fraction of a lot)
+         // Step #3 - Position Size (Lots)
          //--------------------------------------------------------------------------------------------------------------
-         //calculate the RATIO of "what I can afford to lose/risk each trade" (e.g. 1% of equity) divided by "the cost to open one whole Lot".
-         //In this case the ratio directly becomes the "number of lots"!
-         //This may result in a rounding up of the requested Lots, which *may* in turn *slightly* exceed my Max Permitted Risk, but not enough to care about
-               // Use 'setValue() instead? >>> this._dLots = NormalizeDouble( ( oMaxPermittedRiskValue.toNormalizedDouble() / oRiskValueOf1Lot.toNormalizedDouble() ), 2);
-         setValue( NormalizeDouble( ( oMaxPermittedRiskValue.toNormalizedDouble() / oRiskValueOf1Lot.toNormalizedDouble() ), 2), eTickerSymbol );
-         myLogger.logINFO(StringFormat( "Number of Lots (adjusted as per Max Permitted Risk per Trade): %s (given a Stop Loss Width of %s)", this.toString(), oTicks_StopLossWidth.toString() ) );
-*/   
+         // (Account Risk in $)  ÷  (Trade Risk in $)  =  Position Size in Lots
+         
+         //Tricky casting: <$> ÷ <$> = <Lots>
+         PHLots oLots = oAccountRisk.divide( oTickValue );
+
+//         myLogger.logINFO(StringFormat( "Number of Lots (adjusted as per Max Permitted Risk per Trade): %s (given a Stop Loss Width of %s)", this.toString(), oTicks_StopLossWidth.toString() ) );
+   
       } //end if
    
    };
 
 
 
-double  DeltaValuePerLot(string pair=""){
-     //* Value in account currency of a Point of Symbol.
-     //* In tester I had a sale: open=1.35883 close=1.35736 (0.0147)
-     //* gain$=97.32/6.62 lots/147 points=$0.10/point or $1.00/pip.
-     //* IBFX demo/mini       EURUSD TICKVALUE=0.1 MAXLOT=50 LOTSIZE=10,000
-     //* IBFX demo/standard   EURUSD TICKVALUE=1.0 MAXLOT=50 LOTSIZE=100,000
-     //*                                  $1.00/point or $10.0/pip.
-     //*
-     //* https://www.mql5.com/en/forum/127584 CB: MODE_TICKSIZE will usually return the
-     //* same value as MODE_POINT (or Point for the current symbol), however, an
-     //* example of where to use MODE_TICKSIZE would be as part of a ratio with
-     //* MODE_TICKVALUE when performing money management calculations which need
-     //* to take account of the pair and the account currency. The reason I use
-     //* this ratio is that although TV and TS may constantly be returned as
-     //* something like 7.00 and 0.0001 respectively, I've seen this
-     //* (intermittently) change to 14.00 and 0.0002 respectively (just example
-     //* tick values to illustrate).
-     //* https://www.mql5.com/en/forum/135345 zzuegg reports for non-currency DE30:
-     //* MarketInfo(Symbol(),MODE_TICKSIZE) returns 0.5
-     //* MarketInfo(Symbol(),MODE_DIGITS) return 1
-     //* Point = 0.1
-     //* Prices to open must be a multiple of ticksize 
-    if (pair == "") pair = Symbol();
-    return(  MarketInfo(pair, MODE_TICKVALUE)
-           / MarketInfo(pair, MODE_TICKSIZE) ); // Not Point.
-}
 
 
 
