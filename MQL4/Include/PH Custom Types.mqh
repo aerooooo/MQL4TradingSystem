@@ -127,7 +127,20 @@ enum PH_COMPARISON_OPERATOR
   };
 
 
-#define PH_OBJECT_STATUS_OFFSET (PH_COMPARISON_OPERATOR_OFFSET + PH_COMPARISON_OPERATOR_COUNT)
+#define PH_ARITHMETIC_OPERATOR_OFFSET (PH_COMPARISON_OPERATOR_OFFSET + PH_COMPARISON_OPERATOR_COUNT)
+#define PH_ARITHMETIC_OPERATOR_COUNT 10
+
+enum PH_ARITHMETIC_OPERATOR
+  {
+   add = PH_ARITHMETIC_OPERATOR_OFFSET,
+   subtract,
+   multiply,
+   divide,
+   percent
+  };
+
+
+#define PH_OBJECT_STATUS_OFFSET (PH_ARITHMETIC_OPERATOR_OFFSET + PH_ARITHMETIC_OPERATOR_COUNT)
 #define PH_OBJECT_STATUS_COUNT 10
 
 enum PH_OBJECT_STATUS
@@ -255,7 +268,7 @@ class PHDecimal {
 // <<<Methods>>>
    public:
       //Constructors (Abstract Class)
-                            // Constructor #0 [Default] - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
+                           // Constructor #0 [Default] - creates an invalid object! See my notes regarding "DUMMY Constructor #0" below on why I'm doing this...
                            PHDecimal::PHDecimal() : _eStatus( OBJECT_UNITIALIZED ), _lUnits( -1 ), _iPrecision( -1 ) {};
                            // Constructor #1 [Parametric] (Regular Constructor)
                            PHDecimal::PHDecimal( const double dInitialUnits, const short iPrecision );
@@ -263,31 +276,38 @@ class PHDecimal {
                            PHDecimal::PHDecimal( const PHDecimal& oDecimal );
 
       //Public Methods
-                  void     PHDecimal::setValue( const double dInitialUnits, const short iPrecision );
-                  void     PHDecimal::unsetValue();
+         void              PHDecimal::setValue( const double dInitialUnits, const short iPrecision );
+         void              PHDecimal::unsetValue();
 
-                  void     PHDecimal::add     ( const double     dAddUnits );
-                  void     PHDecimal::add     ( const PHDecimal& oAddDecimal );
-                  void     PHDecimal::subtract( const double     dSubUnits );
-                  void     PHDecimal::subtract( const PHDecimal& oSubDecimal );
-                  void     PHDecimal::multiply( const double     dMultiplicationUnits );
-                  void     PHDecimal::divide  ( const double     dDivisionUnits );
-                  bool     PHDecimal::compare ( const double     dComparitorUnits );
-                  bool     PHDecimal::compare ( const PHDecimal& oComparitorUnits );
+         void              PHDecimal::add     ( const double     dAddUnits );
+//         void              PHDecimal::add     ( const PHDecimal& oAddDecimal );
+         void              PHDecimal::subtract( const double     dSubUnits );
+//         void              PHDecimal::subtract( const PHDecimal& oSubDecimal );
+         void              PHDecimal::multiply( const double     dMultiplicationUnits );
+         void              PHDecimal::divide  ( const double     dDivisionUnits );
+         bool              PHDecimal::compare ( const double     dComparitorUnits );
+         bool              PHDecimal::compare ( const PHDecimal& oComparitorUnits );
  /*
-                  bool     PHDecimal::gt      ( const PHDecimal& oComparitorUnits ) const;      //greater than
-                  bool     PHDecimal::gte     ( const PHDecimal& oComparitorUnits ) const;      //greater than
-                  bool     PHDecimal::lt      ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
-                  bool     PHDecimal::lte     ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
+         bool              PHDecimal::gt      ( const PHDecimal& oComparitorUnits ) const;      //greater than
+         bool              PHDecimal::gte     ( const PHDecimal& oComparitorUnits ) const;      //greater than
+         bool              PHDecimal::lt      ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
+         bool              PHDecimal::lte     ( const PHDecimal& oComparitorUnits ) const;      //lessThanOrEqualTo
 */
-         bool     PHDecimal::operatorAndOperand( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const;
+         bool              PHDecimal::relationOperation(const PH_COMPARISON_OPERATOR eOp,const PHDecimal &oOperand) const;
+         void              PHDecimal::arithmeticOperation( const PH_ARITHMETIC_OPERATOR eOp, const PHDecimal& oOperand );
                   
-                  bool     PHDecimal::isValueReadable() const;
-                  double   PHDecimal::toNormalizedDouble() const;
-                  string   PHDecimal::toString() const 
-                           { string sFormatString = StringFormat( "%%.%if", _iPrecision ); return( StringFormat( sFormatString, toNormalizedDouble() ) ); };
-                  string   PHDecimal::objectToString() const
-                           { return( StringConcatenate( "PHDecimal={ Units : ", _lUnits, " , Precision: ", _iPrecision, " , Status: ", EnumToString(_eStatus), " }" ) ); };
+         bool              PHDecimal::isValueReadable() const;
+         double            PHDecimal::toNormalizedDouble() const;
+         string            PHDecimal::toString() const 
+                                      {  string sRet = "";
+                                         if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+                                             string sFormatString = StringFormat( "%%.%if", _iPrecision ); 
+                                             sRet = StringFormat( sFormatString, toNormalizedDouble() );
+                                         }
+                                         return( sRet );
+                                      };
+         string            PHDecimal::objectToString() const
+                                      { return( StringConcatenate( "PHDecimal={ Units : ", _lUnits, " , Precision: ", _iPrecision, " , Status: ", EnumToString(_eStatus), " }" ) ); };
 
    private:
       //Private methods
@@ -449,6 +469,28 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
+   //| PHDecimal - Subtraction()  [Elemental]
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::subtract( const double dSubUnits )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
+
+      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
+
+         this._lUnits -= normalizeAndShiftLeft( dSubUnits);
+
+         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
+      } else {
+         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
+         this._lUnits = NULL;
+      }
+   }; //end sub()
+
+
+/*  disabled in preference to my new 'arithmeticOperation()'
+   //+------------------------------------------------------------------+
    //| PHDecimal - Addition()  [Object]
    //|
    //+------------------------------------------------------------------+
@@ -478,28 +520,6 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - Subtraction()  [Elemental]
-   //|
-   //+------------------------------------------------------------------+
-   void PHDecimal::subtract( const double dSubUnits )
-   {
-      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "_lUnits: %g; param { dSubUnits: %g } ", _lUnits, dSubUnits ) );
-
-      if( this._eStatus == OBJECT_FULLY_INITIALIZED ) {
-
-         this._lUnits -= normalizeAndShiftLeft( dSubUnits);
-
-         myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i } ", _lUnits, _iPrecision ) );
-      } else {
-         myLogger.logERROR( "Addition cannot be performed on an uninitialized Object!" );
-         this._lUnits = NULL;
-      }
-   }; //end sub()
-
-
-
-   //+------------------------------------------------------------------+
    //| PHDecimal - Subtraction()  [Object]
    //|
    //+------------------------------------------------------------------+
@@ -525,11 +545,18 @@ class PHDecimal {
          this._lUnits = NULL;
       }
    };  //end add()
-
+*/
 
 
    //+------------------------------------------------------------------+
    //| PHDecimal - Multiplication()  [Elemental]
+   //|
+   //| 1. Shift the Operand left (to normalize it into the same Precision as the base figure) and cast it into a Long
+   //|
+   //| 2. Perform the Multiplication
+   //|
+   //| 3. shift the intermediate result right by '_iPrecision' digits
+   //|    Because, unfortunately, you've not only multiplied the Units, but also the Precision (by e.g. 2dp)
    //|
    //+------------------------------------------------------------------+
    void PHDecimal::multiply( const double dMultiplicationUnits )
@@ -581,6 +608,14 @@ class PHDecimal {
    //+------------------------------------------------------------------+
    //| PHDecimal - Division()  [Elemental]
    //|
+   //| 1. & 2. Shift the Operand left (to normalize it into the same Precision as the base figure) and cast it into a Long
+   //|
+   //| 3. Perform the Division
+   //|
+   //| 4. normalize the result to the correct DPs - rounding as necessary
+   //|    
+   //| 5. Again, shift the result left and cast it into a Long
+   //|    
    //+------------------------------------------------------------------+
    void PHDecimal::divide( const double dDivisionUnits )
    {
@@ -708,12 +743,13 @@ class PHDecimal {
 
 
    //+------------------------------------------------------------------+
-   //| PHDecimal - operatorAndOperand()
-   //|
+   //| PHDecimal - XXXXoperatorAndOperand( <Object> )XXX
+   //|             relationOperation( <Object> )
    //| 
    //|
    //+------------------------------------------------------------------+
-   bool     PHDecimal::operatorAndOperand( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const
+// bool     PHDecimal::operatorAndOperand( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const
+   bool     PHDecimal::relationOperation( const PH_COMPARISON_OPERATOR eOp, const PHDecimal& oOperand ) const
    {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
       myLogger.logINFO( StringFormat( "param { dComparitorUnits: %s } ", oOperand.toString() ) );
@@ -749,6 +785,70 @@ class PHDecimal {
    }
 
 
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - arithmeticOperation( <Object> )
+   //| 
+   //| non-const  (Object contents are modified by end of operation)
+   //|
+   //+------------------------------------------------------------------+
+   void     PHDecimal::arithmeticOperation( const PH_ARITHMETIC_OPERATOR eOp, const PHDecimal& oOperand )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "param { dComparitorUnits: %s } ", oOperand.toString() ) );
+      
+      bool isConditionSatisfied = false;
+
+      if ( this.isValueReadable() && oOperand.isValueReadable() ) {
+         //both objects are fully initialized
+         
+//       if ( this._iPrecision != oOperand._iPrecision ) {
+//          myLogger.logERROR( "Operations on PHDecimals of differing Precisions not supported yet! (The Object has been invalidated)" );
+//          this._eStatus = OBJECT_UNITIALIZED;
+//       } else {
+
+         short iPrecisionShift;
+
+            switch (eOp)
+            {
+               case add      : {
+                                  iPrecisionShift = (this._iPrecision - oOperand._iPrecision);
+                                  long lNormalizedUnits = (long) MathRound( oOperand._lUnits * MathPow( 10, iPrecisionShift ) ); //may shift left (iPrecisionShift is positive) or right (iPrecisionShift is negative)
+                                  this._lUnits += lNormalizedUnits;   //add
+                               }; break;
+
+               case subtract : {
+                                  iPrecisionShift = (this._iPrecision - oOperand._iPrecision);
+                                  long lNormalizedUnits = (long) MathRound( oOperand._lUnits * MathPow( 10, iPrecisionShift ) ); //may shift left (iPrecisionShift is positive) or right (iPrecisionShift is negative)
+                                  this._lUnits -= lNormalizedUnits;   //subtract
+                               }; break;
+
+               case multiply : {
+                                  iPrecisionShift = oOperand._iPrecision;
+                                  long lOverMultipliedValue = (this._lUnits * oOperand._lUnits);
+                                  this._lUnits = (long) MathRound( (lOverMultipliedValue / (long) MathPow( 10, iPrecisionShift )) );  //e.g. divide by 100 (for an Operand with 2dp)
+                               }; break;
+
+               case divide   : {
+                                  iPrecisionShift = oOperand._iPrecision;
+                                  double dDividedResult    = (this._lUnits / (double) oOperand._lUnits);      //e.g. 1.666666666...
+                                  this._lUnits             = (long) MathRound( dDividedResult * MathPow( 10, iPrecisionShift ));
+                               }; break;
+
+               case percent  : {
+                                  this._lUnits *= oOperand._lUnits; 
+                               }; break;          
+            } //end switch
+
+//       }; //end if
+      
+      } else {
+         //one of the objects is not fully initialized
+         myLogger.logERROR( "arithmetic operations cannot be performed on an uninitialized (nor partially initialized) Object!" );
+      }; //end if
+
+   } //end PHDecimal::arithmeticOperation()
 
 
 
@@ -2027,14 +2127,14 @@ class PHLots : public PHMarket
 
 
       //Perform Validation...      
-      if ( this.operatorAndOperand( gt, _volumeMax_Decimal ) ) {
+      if ( this.relationOperation( gt, _volumeMax_Decimal ) ) {
          // i.e. failed the "dLots > LOTS_MAX_SIZE" test
          myLogger.logERROR( StringFormat( "Attempt to set Lots (%g) to greater than MAX_LOT_SIZE (%s)", _volumeMax_Decimal.toString() ) );
 
          unsetValue();  //Calls PHCurrDecimals' unsetValue() <<CONFIRM   (anyhow, PHLots doesn't need it's own one)
       } 
       
-      if ( this.operatorAndOperand( lt, _volumeMin_Decimal ) ) {
+      if ( this.relationOperation( lt, _volumeMin_Decimal ) ) {
          // i.e. failed the "dLots < LOTS_MIN_SIZE" test
          myLogger.logERROR( StringFormat( "Attempt to set Lots (%g) to less than MIN_LOT_SIZE (%s)", _volumeMin_Decimal.toString() ) );
 
@@ -2117,7 +2217,7 @@ class PHLots : public PHMarket
 
          double dAccountValue = AccountBalance();   //or AccountEquity()?
          PHDepositCurrency oAccountRisk( dAccountValue );
-         oAccountRisk.multiply( oPercentageOfEquityToRisk.getPercent() );
+         oAccountRisk.arithmeticOperation( percent, oPercentageOfEquityToRisk );
          myLogger.logDEBUG( StringFormat( "Account risk:  dAccountValue: %s @ %s results in an Account Risk of: %s", sFmtMny(dAccountValue), oPercentageOfEquityToRisk.toString(), oAccountRisk.toString() ) );
 
 
@@ -2126,7 +2226,7 @@ class PHLots : public PHMarket
          //  (given in Ticks, converted into $$$)
          PHDepositCurrency oTickValue();
          this.getTickValueForStdContract( oTickValue );  // oTickValue's Units will be populated with the '$ Value per Tick per Standard Contract'
-         oTickValue.multiply( oTicks_StopLossWidth );
+         oTickValue.arithmeticOperation( multiply, oTicks_StopLossWidth );
 //         myLogger.logDEBUG( StringFormat( "Value of a Tick (per Standard Contract): %s (Represents Risk)", oTicks_StopLossWidth.toString(), oLots.toString(), oRiskValueOf1Lot.toString() ) );
 
 
@@ -2136,7 +2236,8 @@ class PHLots : public PHMarket
          // (Account Risk in $)  ÷  (Trade Risk in $)  =  Position Size in Lots
          
          //Tricky casting: <$> ÷ <$> = <Lots>
-         PHLots oLots = oAccountRisk.divide( oTickValue );
+         //PHLots oLots =>
+         oAccountRisk.arithmeticOperation( divide, oTickValue );
 
 //         myLogger.logINFO(StringFormat( "Number of Lots (adjusted as per Max Permitted Risk per Trade): %s (given a Stop Loss Width of %s)", this.toString(), oTicks_StopLossWidth.toString() ) );
    
@@ -2274,8 +2375,11 @@ class PHLots : public PHMarket
    //+------------------------------------------------------------------+
    string sFmtDdp( const double dValue, const short iPrecision  )
      {
-      string sFormat = StringConcatenate( "%.", iPrecision, "f" );
-      return(StringFormat( sFormat, dValue ) );
+         short iDigits = iPrecision;
+         if( iPrecision < 0 ) iDigits = 8;
+         
+         string sFormat = StringConcatenate( "%.", iDigits, "f" );
+         return(StringFormat( sFormat, dValue ) );
      }
    
    
