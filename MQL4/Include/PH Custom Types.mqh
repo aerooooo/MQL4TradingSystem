@@ -278,6 +278,9 @@ class PHDecimal {
                            // Constructor #1 [Parametric] (Regular Constructor)
                            PHDecimal::PHDecimal( const double dInitialUnits, const short iPrecision );
 
+                           // Constructor #2a [Parametric] (Partial Constructor)
+//                         PHDecimal::PHDecimal( const double dInitialUnits );   //Perhaps assume a (default) Precision of "2"?
+
                            // Constructor #2 [Parametric] (Partial Constructor)
                            PHDecimal::PHDecimal( const short iPrecision );
 
@@ -286,6 +289,7 @@ class PHDecimal {
 
    //Public Methods
          void              PHDecimal::set( const double dInitialUnits, const short iPrecision );
+         void              PHDecimal::set( const double dInitialUnits );   //only works with a Fully/Partially Initialized object
          void              PHDecimal::set( const short iPrecision );
          void              PHDecimal::unsetValue();
 
@@ -366,16 +370,17 @@ class PHDecimal {
 
 
 
+
    //+------------------------------------------------------------------+
    //| PHDecimal - Parametric Constructor #2   [Elemental]
    //|
-   //| Partial Constructor
+   //| Partial Constructor - set the Precision but marks the object as only Partially Initialized
    //|
    //+------------------------------------------------------------------+
    PHDecimal::PHDecimal( const short iPrecision ) 
    {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "params (Constructor #2) { iPrecision: %i } ", iPrecision ) );
+      myLogger.logINFO( StringFormat( "params (Constructor #2b) { iPrecision: %i } ", iPrecision ) );
       
       bool isUnitsSupplied = false;
       double dInitialUnits = -1;
@@ -411,8 +416,38 @@ class PHDecimal {
 
 
 
+
    //+------------------------------------------------------------------+
-   //| PHDecimal - set() #2   [Elemental]
+   //| PHDecimal - set() #2a   [Elemental]
+   //|
+   //| Partial Setter - but can only be used on a Fully/Partially Initialized object
+   //|
+   //+------------------------------------------------------------------+
+   void PHDecimal::set( const double dInitialUnits )
+   {
+      LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
+      myLogger.logINFO( StringFormat( "params (Setter #2a) { dInitialUnits: %i }, Status: %s ", dInitialUnits, EnumToString(this._eStatus) ) );
+      
+      if( this._eStatus == OBJECT_UNITIALIZED ) {
+         myLogger.logERROR( "Setter #2a - can only be used on a Fully/Partially Initialized object!  Invalidating Object." );
+         unsetValue();
+      } else {
+      
+         bool isUnitsSupplied = true;
+         short iPrecision = this._iPrecision;
+         setValue( dInitialUnits, iPrecision, isUnitsSupplied );
+      } //end if
+
+      myLogger.logINFO( StringFormat( "final { _lUnits: %g, _iPrecision: %i, _eStatus: %s } ", this._lUnits, this._iPrecision, EnumToString( this._eStatus ) ) );
+            
+      _objectDump = PHDecimalToStringDump();
+
+   };  //end Setter #2a
+
+
+
+   //+------------------------------------------------------------------+
+   //| PHDecimal - set() #2b   [Elemental]
    //|
    //| Partial Setter
    //|
@@ -420,7 +455,7 @@ class PHDecimal {
    void PHDecimal::set( const short iPrecision ) 
    {
       LLP( LOG_WARN ) //Set the 'Log File Prefix' and 'Log Threshold' for this function
-      myLogger.logINFO( StringFormat( "params (Setter #2) { iPrecision: %i } ", iPrecision ) );
+      myLogger.logINFO( StringFormat( "params (Setter #2b) { iPrecision: %i } ", iPrecision ) );
       
       bool isUnitsSupplied = false;
       double dInitialUnits = -1;
@@ -430,7 +465,7 @@ class PHDecimal {
             
       _objectDump = PHDecimalToStringDump();
 
-   };  //end Setter #2
+   };  //end Setter #2b
 
 
 
@@ -2741,8 +2776,17 @@ class PHLots : public PHMarket
    void  PHLots::ratioOfLot( const PHDepositCurrency& accountRiskUSD, const PHDepositCurrency& tradeRiskUSD )
    {
       
-      PHDecimal tempNum( accountRiskUSD );      //automatically downgrades a higher-class object.  PHDecimal only takes the attributes it knows, and ignores/discards the higher-level.
+      PHDecimal tempNum( accountRiskUSD );      //automatically downgrades a higher-class object.  PHDecimal only takes the attributes it knows, and ignores/discards the higher-level ones.
       tempNum.arithmeticOperation( divide, tradeRiskUSD );
+      double dLots = tempNum.toNormalizedDouble();
+      this.set( dLots );
+      
+      //Potenmtial Issue:  I want to take the results of the division and clone the Units into my existing PHLots object
+      // *BUT* how to copy the Units over?  The Precisions *may* be of different length! (In this case USD and PHLots are both 2DP...but that's not the point!!!)
+
+      //Perhaps a CLONE method that auto-shifts the Long Units over (from source to target) - keeping the Precision of the Target???
+      // Using a DOUBLE as a common protocol may not be such as bad idea.  It'll get normalized on the way out, kinda normalized on the way in, and then normized on the way out again
+      //       Will I see a loss???
       
 /*
                dInitialUnits = 12.31156;
